@@ -49,11 +49,19 @@ class DocumentStatus(str, Enum):
     CITY_COMMENTS_RECEIVED = "city_comments_received"
 
 
+class IngestionSourceKind(str, Enum):
+    SOCRATA = "socrata"
+    ARCGIS = "arcgis"
+    STATIC_DATASET = "static_dataset"
+
+
 class SourceMetadata(ContractModel):
     source_name: str = Field(min_length=1)
     source_url: HttpUrl
     retrieved_at: datetime
     confidence: Confidence
+    license_name: str | None = None
+    notes: list[str] = Field(default_factory=list)
 
 
 class UserBuildSpec(ContractModel):
@@ -105,6 +113,40 @@ class Listing(ContractModel):
     source_mode: str = Field(description="prototype, licensed, manual, or public")
     current_inventory: bool = True
     sources: list[SourceMetadata] = Field(default_factory=list)
+
+
+class PermitRecord(ContractModel):
+    permit_id: str = Field(min_length=1)
+    permit_type: str | None = None
+    work_class: str | None = None
+    status: str | None = None
+    issue_date: str | None = None
+    expiration_date: str | None = None
+    address: str | None = None
+    description: str | None = None
+    square_feet: float | None = Field(default=None, ge=0)
+    valuation_usd: float | None = Field(default=None, ge=0)
+    units: int | None = Field(default=None, ge=0)
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    raw: dict[str, Any] = Field(default_factory=dict)
+    sources: list[SourceMetadata] = Field(default_factory=list)
+
+
+class GisFeatureRecord(ContractModel):
+    feature_id: str = Field(min_length=1)
+    layer_name: str = Field(min_length=1)
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    geometry: dict[str, Any] | None = None
+    sources: list[SourceMetadata] = Field(default_factory=list)
+
+
+class DataIngestionResponse(ContractModel):
+    source_kind: IngestionSourceKind
+    source_name: str = Field(min_length=1)
+    records: list[PermitRecord | GisFeatureRecord]
+    source: SourceMetadata
+    warnings: list[str] = Field(default_factory=list)
 
 
 class ComplianceFinding(ContractModel):

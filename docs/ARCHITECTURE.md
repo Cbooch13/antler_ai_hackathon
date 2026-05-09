@@ -58,3 +58,23 @@ LLMs may extract, explain, rank, summarize, and converse. Deterministic services
 - `packages/integrations`: external API clients.
 - `packages/agents`: OpenAI agent orchestration definitions.
 - `packages/workers`: long-running jobs for ingestion, visuals, and exports.
+
+## Stage 2 Public Data
+
+The Stage 2 ingestion path is backend-first:
+
+```text
+FastAPI /data/austin/*
+  |
+  v
+Data ingestion service
+  |
+  |-- SocrataPermitClient -> Austin issued construction permits
+  |-- ArcGisFeatureLayerClient -> zoning FeatureServer
+  |-- ArcGisFeatureLayerClient -> TCAD parcel FeatureServer
+  |
+  v
+Normalized PermitRecord / GisFeatureRecord with SourceMetadata
+```
+
+Stage 2 does not persist records yet. Persistence, spatial joins, stale-data policy, and scheduled workers are deferred to later stages.

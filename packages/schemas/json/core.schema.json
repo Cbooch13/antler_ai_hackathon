@@ -15,7 +15,53 @@
         "sourceName": { "type": "string", "minLength": 1 },
         "sourceUrl": { "type": "string", "format": "uri" },
         "retrievedAt": { "type": "string", "format": "date-time" },
-        "confidence": { "$ref": "#/$defs/Confidence" }
+        "confidence": { "$ref": "#/$defs/Confidence" },
+        "licenseName": { "type": "string" },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        }
+      }
+    },
+    "PermitRecord": {
+      "type": "object",
+      "required": ["permitId", "raw", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "permitId": { "type": "string", "minLength": 1 },
+        "permitType": { "type": "string" },
+        "workClass": { "type": "string" },
+        "status": { "type": "string" },
+        "issueDate": { "type": "string" },
+        "expirationDate": { "type": "string" },
+        "address": { "type": "string" },
+        "description": { "type": "string" },
+        "squareFeet": { "type": "number", "minimum": 0 },
+        "valuationUsd": { "type": "number", "minimum": 0 },
+        "units": { "type": "integer", "minimum": 0 },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "raw": { "type": "object" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceMetadata" }
+        }
+      }
+    },
+    "GisFeatureRecord": {
+      "type": "object",
+      "required": ["featureId", "layerName", "attributes", "sources"],
+      "additionalProperties": false,
+      "properties": {
+        "featureId": { "type": "string", "minLength": 1 },
+        "layerName": { "type": "string", "minLength": 1 },
+        "attributes": { "type": "object" },
+        "geometry": { "type": "object" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceMetadata" }
+        }
       }
     },
     "UserBuildSpec": {

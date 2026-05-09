@@ -12,9 +12,9 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 1 - User Spec Intake**.
+Current implementation target: **Stage 2 - Public Austin Data Ingestion**.
 
-Stage 1 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic rule stub, env template, typed intake form, normalization endpoint, and intake tests. Future stages should be implemented only after review.
+Stage 2 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic rule stub, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 
@@ -50,6 +50,14 @@ Run the Next.js app:
 
 ```bash
 NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8000 pnpm --filter web dev --hostname 127.0.0.1 --port 3000
+```
+
+Stage 2 public-data endpoints:
+
+```bash
+curl "http://127.0.0.1:8000/data/austin/permits/recent?limit=5"
+curl "http://127.0.0.1:8000/data/austin/zoning/sample?limit=5"
+curl "http://127.0.0.1:8000/data/austin/parcels/sample?limit=5"
 ```
 
 ## Important Disclaimer

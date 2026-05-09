@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from realestate_schemas import (
     Confidence,
     Parcel,
+    PermitRecord,
     PropertyType,
     RiskTolerance,
     SourceMetadata,
@@ -84,3 +85,26 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
 
     assert schema["$defs"]["UserBuildSpec"]["properties"]["city"]["const"] == "Austin"
     assert "ComplianceFinding" in schema["$defs"]
+    assert "PermitRecord" in schema["$defs"]
+
+
+def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
+    source = SourceMetadata(
+        source_name="Austin Open Data issued construction permits",
+        source_url="https://data.austintexas.gov/resource/3syk-w9eu.json",
+        retrieved_at=datetime.now(timezone.utc),
+        confidence=Confidence.HIGH,
+        license_name="City of Austin Open Data terms",
+        notes=["verify official status"],
+    )
+
+    permit = PermitRecord(
+        permitId="BP-2024-001",
+        valuationUsd=650_000,
+        raw={"permit_number": "BP-2024-001"},
+        sources=[source],
+    )
+
+    assert permit.permit_id == "BP-2024-001"
+    assert permit.model_dump(by_alias=True)["valuationUsd"] == 650_000
+    assert permit.sources[0].notes == ["verify official status"]
