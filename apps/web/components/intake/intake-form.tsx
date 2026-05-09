@@ -78,6 +78,11 @@ export function IntakeForm() {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            "Listings endpoint not found. Restart the FastAPI server so it is running Stage 3."
+          );
+        }
         throw new Error(`API returned ${response.status}`);
       }
 
