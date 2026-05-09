@@ -1,4 +1,5 @@
 import os
+from urllib.parse import quote_plus
 
 from integrations import kaggle_source_metadata, load_kaggle_static_listing_fixtures
 from realestate_schemas import (
@@ -173,9 +174,8 @@ def _map_context_for_listing(listing: Listing) -> MapContext:
     else:
         warnings.append("Mapbox token is not configured, so aerial image URL is unavailable.")
 
-    street_view_url = (
-        "https://www.google.com/maps/@?api=1&map_action=pano"
-        f"&viewpoint={listing.latitude},{listing.longitude}"
+    street_view_url = "https://www.google.com/maps/search/?api=1&query=" + quote_plus(
+        listing.address
     )
     return MapContext(
         latitude=listing.latitude,

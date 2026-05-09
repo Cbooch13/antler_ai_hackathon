@@ -116,6 +116,7 @@ class Listing(ContractModel):
     listing_id: str = Field(min_length=1)
     parcel_id: str | None = None
     address: str
+    neighborhood: str | None = None
     price_usd: PositiveFloat
     lot_sqft: PositiveFloat | None = None
     building_sqft: PositiveFloat | None = None

@@ -127,6 +127,7 @@ def test_listing_static_source_contract_requires_inventory_flag() -> None:
     listing = Listing(
         listingId="kaggle-austin-001",
         address="4307 Avenue G, Austin, TX 78751",
+        neighborhood="Hyde Park / Central Austin",
         priceUsd=825_000,
         lotSqft=6_600,
         buildingSqft=2_150,
@@ -139,6 +140,7 @@ def test_listing_static_source_contract_requires_inventory_flag() -> None:
     )
 
     assert listing.current_inventory is False
+    assert listing.neighborhood == "Hyde Park / Central Austin"
     assert listing.model_dump(by_alias=True)["sourceMode"] == "prototype_static_dataset"
 
 
@@ -151,7 +153,8 @@ def test_parcel_detail_contract_supports_missing_official_joins() -> None:
     )
     listing = Listing(
         listingId="kaggle-austin-001",
-        address="Central Austin prototype comp",
+        address="4307 Avenue G, Austin, TX 78751",
+        neighborhood="Hyde Park / Central Austin",
         priceUsd=825_000,
         sourceMode=ListingSourceMode.PROTOTYPE_STATIC_DATASET,
         currentInventory=False,

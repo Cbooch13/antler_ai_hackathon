@@ -69,6 +69,7 @@ describe("lotSearchResponseSchema", () => {
           listing: {
             listingId: "kaggle-austin-001",
             address: "4307 Avenue G, Austin, TX 78751",
+            neighborhood: "Hyde Park / Central Austin",
             priceUsd: 825000,
             lotSqft: 6600,
             units: 2,
@@ -91,6 +92,7 @@ describe("parcelDetailResponseSchema", () => {
       listing: {
         listingId: "kaggle-austin-001",
         address: "4307 Avenue G, Austin, TX 78751",
+        neighborhood: "Hyde Park / Central Austin",
         priceUsd: 825000,
         lotSqft: 6600,
         units: 2,
@@ -104,7 +106,8 @@ describe("parcelDetailResponseSchema", () => {
         longitude: -97.741,
         mapProvider: "mapbox",
         aerialImageUrl: null,
-        streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=30.298,-97.741",
+        streetViewUrl:
+          "https://www.google.com/maps/search/?api=1&query=4307+Avenue+G%2C+Austin%2C+TX+78751",
         warnings: ["Mapbox token is not configured."]
       },
       zoningFeatures: [],

@@ -71,6 +71,7 @@ def test_listing_search_route_returns_ranked_static_candidates() -> None:
     assert payload["candidates"][0]["listing"]["currentInventory"] is False
     assert payload["source"]["sourceUrl"].endswith("/ericpierce/austinhousingprices")
     assert "prototype comp" not in payload["candidates"][0]["listing"]["address"]
+    assert payload["candidates"][0]["listing"]["neighborhood"] == "Hyde Park / Central Austin"
 
 
 def test_listing_detail_exposes_map_context_and_missing_join_warnings() -> None:
@@ -80,6 +81,8 @@ def test_listing_detail_exposes_map_context_and_missing_join_warnings() -> None:
     assert detail.parcel is not None
     assert detail.map_context.latitude == 30.298
     assert detail.map_context.street_view_url is not None
+    assert "4307+Avenue+G" in detail.map_context.street_view_url
+    assert "viewpoint=30.298" not in detail.map_context.street_view_url
     assert "No zoning feature has been joined to this prototype row yet." in detail.warnings
 
 
@@ -99,5 +102,6 @@ def test_listing_detail_route_returns_context() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["listing"]["listingId"] == "kaggle-austin-001"
+    assert payload["listing"]["neighborhood"] == "Hyde Park / Central Austin"
     assert payload["parcel"]["parcelId"] == "prototype-kaggle-austin-001"
-    assert payload["mapContext"]["streetViewUrl"].startswith("https://www.google.com/maps/")
+    assert payload["mapContext"]["streetViewUrl"].startswith("https://www.google.com/maps/search/")

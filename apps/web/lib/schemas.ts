@@ -40,6 +40,7 @@ export const listingSchema = z.object({
   listingId: z.string().min(1),
   parcelId: z.string().nullable().optional(),
   address: z.string().min(1),
+  neighborhood: z.string().nullable().optional(),
   priceUsd: z.number().positive(),
   lotSqft: z.number().positive().nullable().optional(),
   buildingSqft: z.number().positive().nullable().optional(),

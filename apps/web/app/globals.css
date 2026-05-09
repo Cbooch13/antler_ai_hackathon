@@ -255,6 +255,12 @@ span,
   font-weight: 750;
 }
 
+.area-line {
+  color: #5c6a70;
+  font-size: 0.84rem;
+  font-weight: 700;
+}
+
 .result-card button {
   margin-top: 4px;
 }

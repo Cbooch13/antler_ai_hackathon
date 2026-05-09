@@ -263,9 +263,6 @@ export function IntakeForm() {
       {lotSearch ? (
         <section className="results">
           <h3>Ranked Prototype Lots</h3>
-          {lotSearch.candidates[0] ? (
-            <p className="section-address">{lotSearch.candidates[0].listing.address}</p>
-          ) : null}
           <div className="warning-list">
             {lotSearch.warnings.map((warning) => (
               <p className="warning" key={warning}>
@@ -281,6 +278,9 @@ export function IntakeForm() {
                   <span>{candidate.score}/100</span>
                 </div>
                 <p className="address-line">{candidate.listing.address}</p>
+                {candidate.listing.neighborhood ? (
+                  <p className="area-line">{candidate.listing.neighborhood}</p>
+                ) : null}
                 <p>
                   ${candidate.listing.priceUsd.toLocaleString()} ·{" "}
                   {candidate.listing.lotSqft?.toLocaleString() ?? "Unknown"} lot sqft ·{" "}
@@ -304,6 +304,9 @@ export function IntakeForm() {
         <section className="parcel-detail">
           <h3>Lot Context</h3>
           <p className="section-address">{parcelDetail.listing.address}</p>
+          {parcelDetail.listing.neighborhood ? (
+            <p className="area-line">{parcelDetail.listing.neighborhood}</p>
+          ) : null}
           <p>
             Coordinates: {parcelDetail.mapContext.latitude ?? "unknown"},{" "}
             {parcelDetail.mapContext.longitude ?? "unknown"}
@@ -313,11 +316,11 @@ export function IntakeForm() {
             <img src={parcelDetail.mapContext.aerialImageUrl} alt="Aerial map context" />
           ) : null}
           <div className="context-links">
-            {parcelDetail.mapContext.streetViewUrl ? (
-              <a href={parcelDetail.mapContext.streetViewUrl} target="_blank" rel="noreferrer">
-                Open Street View
-              </a>
-            ) : null}
+              {parcelDetail.mapContext.streetViewUrl ? (
+                <a href={parcelDetail.mapContext.streetViewUrl} target="_blank" rel="noreferrer">
+                  Open Map
+                </a>
+              ) : null}
           </div>
           {[...parcelDetail.warnings, ...parcelDetail.mapContext.warnings].map((warning) => (
             <p className="warning" key={warning}>
