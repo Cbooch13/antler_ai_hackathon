@@ -204,6 +204,14 @@ span,
   gap: 6px;
 }
 
+.section-address {
+  margin: -6px 0 0;
+  color: #42525a;
+  font-size: 0.95rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
 .warning {
   margin: 0;
   color: #6f4b00;
@@ -230,7 +238,7 @@ span,
   scroll-snap-align: start;
 }
 
-.result-card div {
+.result-card-header {
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -240,6 +248,11 @@ span,
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.4;
+}
+
+.address-line {
+  color: #25363d;
+  font-weight: 750;
 }
 
 .result-card button {

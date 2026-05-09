@@ -263,6 +263,9 @@ export function IntakeForm() {
       {lotSearch ? (
         <section className="results">
           <h3>Ranked Prototype Lots</h3>
+          {lotSearch.candidates[0] ? (
+            <p className="section-address">{lotSearch.candidates[0].listing.address}</p>
+          ) : null}
           <div className="warning-list">
             {lotSearch.warnings.map((warning) => (
               <p className="warning" key={warning}>
@@ -273,10 +276,11 @@ export function IntakeForm() {
           <div className="result-list">
             {lotSearch.candidates.map((candidate) => (
               <article className="result-card" key={candidate.listing.listingId}>
-                <div>
-                  <strong>{candidate.listing.address}</strong>
+                <div className="result-card-header">
+                  <strong>Prototype Lot</strong>
                   <span>{candidate.score}/100</span>
                 </div>
+                <p className="address-line">{candidate.listing.address}</p>
                 <p>
                   ${candidate.listing.priceUsd.toLocaleString()} ·{" "}
                   {candidate.listing.lotSqft?.toLocaleString() ?? "Unknown"} lot sqft ·{" "}
@@ -299,7 +303,7 @@ export function IntakeForm() {
       {parcelDetail ? (
         <section className="parcel-detail">
           <h3>Lot Context</h3>
-          <strong>{parcelDetail.listing.address}</strong>
+          <p className="section-address">{parcelDetail.listing.address}</p>
           <p>
             Coordinates: {parcelDetail.mapContext.latitude ?? "unknown"},{" "}
             {parcelDetail.mapContext.longitude ?? "unknown"}
