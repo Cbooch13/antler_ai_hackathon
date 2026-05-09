@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   lotSearchResponseSchema,
+  complianceEvaluationResponseSchema,
   normalizedBuildSpecResponseSchema,
   parcelDetailResponseSchema,
   userBuildSpecSchema
@@ -114,6 +115,43 @@ describe("parcelDetailResponseSchema", () => {
       permitHistory: [],
       warnings: ["No zoning feature has been joined yet."],
       sources: []
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("complianceEvaluationResponseSchema", () => {
+  it("accepts advisory feasibility findings", () => {
+    const result = complianceEvaluationResponseSchema.safeParse({
+      listing: {
+        listingId: "kaggle-austin-001",
+        address: "4307 Avenue G, Austin, TX 78751",
+        neighborhood: "Hyde Park / Central Austin",
+        priceUsd: 825000,
+        units: 2,
+        sourceMode: "prototype_static_dataset",
+        currentInventory: false,
+        sources: []
+      },
+      parcel: {
+        parcelId: "prototype-kaggle-austin-001",
+        address: "4307 Avenue G, Austin, TX 78751",
+        sources: []
+      },
+      findings: [
+        {
+          code: "STATIC-DATASET-SOURCE",
+          title: "Static fallback data",
+          status: "warning",
+          summary: "This property comes from a static MVP fallback dataset.",
+          confidence: "high",
+          professionalVerificationRequired: true,
+          citations: []
+        }
+      ],
+      summary: "1 advisory finding generated; 1 requires review or additional data.",
+      professionalVerificationRequired: true
     });
 
     expect(result.success).toBe(true);

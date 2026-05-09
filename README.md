@@ -12,9 +12,9 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 4 - Parcel Detail and Map Context**.
+Current implementation target: **Stage 5 - Compliance Feasibility Engine**.
 
-Stage 4 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic rule stub, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map/street-view links, and tests. Future stages should be implemented only after review.
+Stage 5 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 
@@ -72,6 +72,14 @@ Stage 4 parcel detail endpoint:
 
 ```bash
 curl "http://127.0.0.1:8000/listings/kaggle-austin-001/detail"
+```
+
+Stage 5 compliance endpoint:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/compliance/evaluate" \
+  -H "Content-Type: application/json" \
+  -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"listingId":"kaggle-austin-001"}'
 ```
 
 ## Important Disclaimer

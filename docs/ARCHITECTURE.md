@@ -123,3 +123,24 @@ ParcelDetailResponse with explicit missing-data warnings
 ```
 
 Stage 4 does not claim official parcel boundaries. It exposes context and warnings so later compliance stages can add deterministic checks safely.
+
+## Stage 5 Compliance
+
+```text
+Selected lot + validated UserBuildSpec
+  |
+  v
+POST /compliance/evaluate
+  |
+  v
+Compliance service
+  |
+  |-- Load selected lot context
+  |-- Run deterministic rules
+  |-- Preserve citations/source metadata
+  |
+  v
+ComplianceEvaluationResponse
+```
+
+The LLM does not own final compliance status. Stage 5 findings are deterministic and explicitly advisory until official zoning, parcel, tree, floodplain, WUI, survey, and permit-review data are joined.

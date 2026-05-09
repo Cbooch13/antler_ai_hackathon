@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 4 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, and selected-lot context:
+Stage 5 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, and advisory compliance feasibility:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -26,6 +26,9 @@ Stage 4 establishes the system foundation, the first user-facing intake path, of
 - `/listings/{listing_id}/detail` API route for selected-lot context.
 - Map context with coordinates, street-view link, optional aerial image URL, and missing-data warnings.
 - Website lot-detail panel after selecting a ranked prototype lot.
+- `/compliance/evaluate` API route for deterministic advisory feasibility findings.
+- Website feasibility panel after selecting a lot and validated build spec.
+- Explicit statuses for passes, warnings, unknowns, source limitations, and professional-review requirements.
 
 ## Source Priority
 
@@ -93,6 +96,20 @@ Stage 4 selected-lot context must include:
 - source metadata from the listing and public-data providers
 
 Prototype detail views must not imply official parcel boundaries or city approval.
+
+## Compliance Feasibility
+
+Stage 5 compliance rules are deterministic and advisory. They may report:
+
+- static dataset limitations
+- lot-size target fit
+- unit-count target fit
+- missing official zoning joins
+- tree review unknowns
+- floodplain/WUI overlay unknowns
+- commercial MVP scope limitations
+
+Compliance results must never imply permit approval. Every finding must include a status, confidence level, professional-verification flag, and citations/source metadata where available.
 
 ## Agent Responsibilities
 

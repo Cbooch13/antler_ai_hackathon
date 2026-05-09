@@ -122,9 +122,18 @@ export const complianceFindingSchema = z.object({
   citations: z.array(sourceMetadataSchema)
 });
 
+export const complianceEvaluationResponseSchema = z.object({
+  listing: listingSchema,
+  parcel: parcelSchema,
+  findings: z.array(complianceFindingSchema),
+  summary: z.string().min(1),
+  professionalVerificationRequired: z.boolean()
+});
+
 export type UserBuildSpec = z.infer<typeof userBuildSpecSchema>;
 export type IntakeNormalizeRequest = z.infer<typeof intakeNormalizeRequestSchema>;
 export type NormalizedBuildSpecResponse = z.infer<typeof normalizedBuildSpecResponseSchema>;
 export type LotSearchResponse = z.infer<typeof lotSearchResponseSchema>;
 export type ParcelDetailResponse = z.infer<typeof parcelDetailResponseSchema>;
 export type ComplianceFinding = z.infer<typeof complianceFindingSchema>;
+export type ComplianceEvaluationResponse = z.infer<typeof complianceEvaluationResponseSchema>;

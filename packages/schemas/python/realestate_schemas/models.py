@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import datetime
 from enum import Enum
 from typing import Any
@@ -204,6 +206,19 @@ class ParcelDetailResponse(ContractModel):
     permit_history: list[PermitRecord] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
     sources: list[SourceMetadata] = Field(default_factory=list)
+
+
+class ComplianceEvaluationRequest(ContractModel):
+    spec: UserBuildSpec
+    listing_id: str = Field(min_length=1)
+
+
+class ComplianceEvaluationResponse(ContractModel):
+    listing: Listing
+    parcel: Parcel
+    findings: list[ComplianceFinding]
+    summary: str = Field(min_length=1)
+    professional_verification_required: bool = True
 
 
 class ComplianceFinding(ContractModel):

@@ -1,5 +1,7 @@
 from realestate_schemas.models import (
     ComplianceFinding,
+    ComplianceEvaluationRequest,
+    ComplianceEvaluationResponse,
     Confidence,
     DesignOption,
     Document,
@@ -28,6 +30,8 @@ from realestate_schemas.models import (
 
 __all__ = [
     "ComplianceFinding",
+    "ComplianceEvaluationRequest",
+    "ComplianceEvaluationResponse",
     "Confidence",
     "DesignOption",
     "Document",

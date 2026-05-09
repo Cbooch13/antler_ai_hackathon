@@ -113,7 +113,8 @@ h2 {
 .preview,
 .conversation-box,
 .results,
-.parcel-detail {
+.parcel-detail,
+.compliance-panel {
   display: grid;
   gap: 16px;
   padding: 24px;
@@ -194,7 +195,8 @@ span,
 }
 
 .results h3,
-.parcel-detail h3 {
+.parcel-detail h3,
+.compliance-panel h3 {
   margin: 0;
   font-size: 1rem;
 }
@@ -284,6 +286,42 @@ span,
 .context-links a {
   color: #255f5a;
   font-weight: 750;
+}
+
+.compliance-panel {
+  background: #ffffff;
+}
+
+.finding-list {
+  display: grid;
+  gap: 10px;
+}
+
+.finding-card {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #d9ddd5;
+  background: #fbfbf8;
+}
+
+.finding-card p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
+.finding-passes {
+  border-left: 4px solid #2f6f69;
+}
+
+.finding-warning,
+.finding-unknown {
+  border-left: 4px solid #b37811;
+}
+
+.finding-fails {
+  border-left: 4px solid #9f2f27;
 }
 
 pre {

@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
+  type ComplianceEvaluationResponse,
   type NormalizedBuildSpecResponse,
   type ParcelDetailResponse,
   type UserBuildSpec,
+  complianceEvaluationResponseSchema,
   lotSearchResponseSchema,
   normalizedBuildSpecResponseSchema,
   parcelDetailResponseSchema,
@@ -38,10 +40,12 @@ export function IntakeForm() {
   const [result, setResult] = useState<NormalizedBuildSpecResponse | null>(null);
   const [lotSearch, setLotSearch] = useState<LotSearchResponse | null>(null);
   const [parcelDetail, setParcelDetail] = useState<ParcelDetailResponse | null>(null);
+  const [compliance, setCompliance] = useState<ComplianceEvaluationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isNormalizing, setIsNormalizing] = useState(false);
   const [isSearchingLots, setIsSearchingLots] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
 
   const {
     register,
@@ -69,6 +73,7 @@ export function IntakeForm() {
     });
     setLotSearch(null);
     setParcelDetail(null);
+    setCompliance(null);
   }
 
   async function normalizeText() {
@@ -90,6 +95,7 @@ export function IntakeForm() {
       setResult(parsed);
       setLotSearch(null);
       setParcelDetail(null);
+      setCompliance(null);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -132,6 +138,7 @@ export function IntakeForm() {
 
       setLotSearch(lotSearchResponseSchema.parse(await response.json()));
       setParcelDetail(null);
+      setCompliance(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not search prototype lots.");
     } finally {
@@ -151,10 +158,42 @@ export function IntakeForm() {
       }
 
       setParcelDetail(parcelDetailResponseSchema.parse(await response.json()));
+      setCompliance(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load parcel context.");
     } finally {
       setIsLoadingDetail(false);
+    }
+  }
+
+  async function runFeasibilityCheck() {
+    if (!result?.spec || !parcelDetail?.listing.listingId) {
+      setError("Validate a spec and select a lot before running feasibility.");
+      return;
+    }
+
+    setIsCheckingCompliance(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/compliance/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spec: result.spec,
+          listingId: parcelDetail.listing.listingId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      setCompliance(complianceEvaluationResponseSchema.parse(await response.json()));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not run feasibility check.");
+    } finally {
+      setIsCheckingCompliance(false);
     }
   }
 
@@ -322,11 +361,37 @@ export function IntakeForm() {
                 </a>
               ) : null}
           </div>
+          <button type="button" onClick={runFeasibilityCheck} disabled={isCheckingCompliance}>
+            {isCheckingCompliance ? "Checking..." : "Run Feasibility Check"}
+          </button>
           {[...parcelDetail.warnings, ...parcelDetail.mapContext.warnings].map((warning) => (
             <p className="warning" key={warning}>
               {warning}
             </p>
           ))}
+        </section>
+      ) : null}
+
+      {compliance ? (
+        <section className="compliance-panel">
+          <h3>Compliance Feasibility</h3>
+          <p className="section-address">{compliance.listing.address}</p>
+          <p>{compliance.summary}</p>
+          <div className="finding-list">
+            {compliance.findings.map((finding) => (
+              <article className={`finding-card finding-${finding.status}`} key={finding.code}>
+                <div className="result-card-header">
+                  <strong>{finding.title}</strong>
+                  <span>{finding.status}</span>
+                </div>
+                <p>{finding.summary}</p>
+                <p>
+                  Confidence: {finding.confidence} · Professional verification:{" "}
+                  {finding.professionalVerificationRequired ? "required" : "not required"}
+                </p>
+              </article>
+            ))}
+          </div>
         </section>
       ) : null}
     </section>
