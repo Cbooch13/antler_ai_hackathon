@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://austin-build-feasibility.local/schemas/core.schema.json",
+  "title": "Austin Build Feasibility Core Schemas",
+  "$defs": {
+    "Confidence": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "SourceMetadata": {
+      "type": "object",
+      "required": ["sourceName", "sourceUrl", "retrievedAt", "confidence"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceName": { "type": "string", "minLength": 1 },
+        "sourceUrl": { "type": "string", "format": "uri" },
+        "retrievedAt": { "type": "string", "format": "date-time" },
+        "confidence": { "$ref": "#/$defs/Confidence" }
+      }
+    },
+    "UserBuildSpec": {
+      "type": "object",
+      "required": [
+        "projectName",
+        "city",
+        "state",
+        "propertyType",
+        "totalBudgetUsd",
+        "units",
+        "riskTolerance"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "projectName": { "type": "string", "minLength": 1 },
+        "city": { "const": "Austin" },
+        "state": { "const": "TX" },
+        "propertyType": {
+          "type": "string",
+          "enum": ["single_family", "adu", "duplex_triplex", "commercial"]
+        },
+        "totalBudgetUsd": { "type": "number", "exclusiveMinimum": 0 },
+        "targetLotSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "targetBuildingSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "bedrooms": { "type": "integer", "minimum": 0 },
+        "bathrooms": { "type": "number", "minimum": 0 },
+        "units": { "type": "integer", "minimum": 1 },
+        "stylePreferences": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": []
+        },
+        "riskTolerance": {
+          "type": "string",
+          "enum": ["low", "medium", "high"]
+        }
+      }
+    },
+    "ComplianceFinding": {
+      "type": "object",
+      "required": [
+        "code",
+        "title",
+        "status",
+        "summary",
+        "confidence",
+        "professionalVerificationRequired",
+        "citations"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "type": "string", "minLength": 1 },
+        "title": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["passes", "fails", "warning", "unknown"]
+        },
+        "summary": { "type": "string", "minLength": 1 },
+        "confidence": { "$ref": "#/$defs/Confidence" },
+        "professionalVerificationRequired": { "type": "boolean" },
+        "citations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceMetadata" }
+        }
+      }
+    }
+  }
+}

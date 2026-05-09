@@ -1,0 +1,54 @@
+[project]
+name = "austin-build-feasibility-ai"
+version = "0.1.0"
+description = "Austin lot feasibility, compliance, and design assistant foundation."
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi>=0.110",
+  "pydantic>=2",
+  "httpx>=0.27",
+  "uvicorn>=0.29"
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=9.0",
+  "ruff>=0.8"
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [
+  "apps/api",
+  "packages/schemas/python",
+  "packages/rules/python",
+  "packages/integrations/python",
+  "packages/agents/python",
+  "packages/workers/python"
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = [
+  "apps/api",
+  "packages/schemas/python",
+  "packages/rules/python",
+  "packages/integrations/python",
+  "packages/agents/python",
+  "packages/workers/python"
+]
+include = [
+  "app*",
+  "realestate_schemas*",
+  "rules*",
+  "integrations*",
+  "estate_agents*",
+  "workers*"
+]

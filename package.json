@@ -1,0 +1,14 @@
+{
+  "name": "austin-build-feasibility-ai",
+  "private": true,
+  "packageManager": "pnpm@9.15.0",
+  "scripts": {
+    "dev": "pnpm --filter web dev",
+    "test": "pnpm --filter web test",
+    "lint": "pnpm --filter web lint",
+    "typecheck": "pnpm --filter web typecheck"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
