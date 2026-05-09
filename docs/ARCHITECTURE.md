@@ -101,3 +101,25 @@ LotSearchResponse with currentInventory=false for prototype rows
 ```
 
 Stage 3 intentionally does not scrape live listing websites. Static fallback rows are used for demos and workflow validation only.
+
+## Stage 4 Parcel Detail
+
+```text
+Ranked lot card
+  |
+  v
+GET /listings/{listing_id}/detail
+  |
+  v
+Parcel detail service
+  |
+  |-- Static listing fixture
+  |-- Prototype parcel shell
+  |-- MapContext with coordinates and street-view URL
+  |-- Future zoning/permit/parcel spatial joins
+  |
+  v
+ParcelDetailResponse with explicit missing-data warnings
+```
+
+Stage 4 does not claim official parcel boundaries. It exposes context and warnings so later compliance stages can add deterministic checks safely.

@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.main import create_app
-from app.services.listings import rank_listings, search_lots
+from app.services.listings import get_listing_detail, rank_listings, search_lots
 from integrations import load_kaggle_static_listing_fixtures
 from realestate_schemas import ListingSourceMode, LotSearchRequest, PropertyType, UserBuildSpec
 
@@ -70,3 +70,33 @@ def test_listing_search_route_returns_ranked_static_candidates() -> None:
     assert len(payload["candidates"]) == 3
     assert payload["candidates"][0]["listing"]["currentInventory"] is False
     assert payload["source"]["sourceUrl"].endswith("/ericpierce/austinhousingprices")
+
+
+def test_listing_detail_exposes_map_context_and_missing_join_warnings() -> None:
+    detail = get_listing_detail("kaggle-austin-001")
+
+    assert detail is not None
+    assert detail.parcel is not None
+    assert detail.map_context.latitude == 30.298
+    assert detail.map_context.street_view_url is not None
+    assert "No zoning feature has been joined to this prototype row yet." in detail.warnings
+
+
+def test_listing_detail_route_404s_unknown_listing() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/listings/not-real/detail")
+
+    assert response.status_code == 404
+
+
+def test_listing_detail_route_returns_context() -> None:
+    client = TestClient(create_app())
+
+    response = client.get("/listings/kaggle-austin-001/detail")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["listing"]["listingId"] == "kaggle-austin-001"
+    assert payload["parcel"]["parcelId"] == "prototype-kaggle-austin-001"
+    assert payload["mapContext"]["streetViewUrl"].startswith("https://www.google.com/maps/")

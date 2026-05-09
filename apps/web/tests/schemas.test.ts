@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   lotSearchResponseSchema,
   normalizedBuildSpecResponseSchema,
+  parcelDetailResponseSchema,
   userBuildSpecSchema
 } from "../lib/schemas";
 
@@ -78,6 +79,38 @@ describe("lotSearchResponseSchema", () => {
           }
         }
       ]
+    });
+
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("parcelDetailResponseSchema", () => {
+  it("accepts lot context with missing-data warnings", () => {
+    const result = parcelDetailResponseSchema.safeParse({
+      listing: {
+        listingId: "kaggle-austin-001",
+        address: "Central Austin prototype comp",
+        priceUsd: 825000,
+        lotSqft: 6600,
+        units: 2,
+        sourceMode: "prototype_static_dataset",
+        currentInventory: false,
+        sources: []
+      },
+      parcel: null,
+      mapContext: {
+        latitude: 30.298,
+        longitude: -97.741,
+        mapProvider: "mapbox",
+        aerialImageUrl: null,
+        streetViewUrl: "https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=30.298,-97.741",
+        warnings: ["Mapbox token is not configured."]
+      },
+      zoningFeatures: [],
+      permitHistory: [],
+      warnings: ["No zoning feature has been joined yet."],
+      sources: []
     });
 
     expect(result.success).toBe(true);

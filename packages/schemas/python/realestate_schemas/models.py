@@ -186,6 +186,25 @@ class DataIngestionResponse(ContractModel):
     warnings: list[str] = Field(default_factory=list)
 
 
+class MapContext(ContractModel):
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    map_provider: str = "mapbox"
+    aerial_image_url: str | None = None
+    street_view_url: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class ParcelDetailResponse(ContractModel):
+    listing: Listing
+    parcel: Parcel | None = None
+    map_context: MapContext
+    zoning_features: list[GisFeatureRecord] = Field(default_factory=list)
+    permit_history: list[PermitRecord] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    sources: list[SourceMetadata] = Field(default_factory=list)
+
+
 class ComplianceFinding(ContractModel):
     code: str = Field(min_length=1)
     title: str = Field(min_length=1)

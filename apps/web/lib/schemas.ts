@@ -61,6 +61,25 @@ export const listingSchema = z.object({
   sources: z.array(sourceMetadataSchema)
 });
 
+export const parcelSchema = z.object({
+  parcelId: z.string().min(1),
+  address: z.string(),
+  lotSqft: z.number().positive().nullable().optional(),
+  zoning: z.string().nullable().optional(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
+  sources: z.array(sourceMetadataSchema)
+});
+
+export const mapContextSchema = z.object({
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
+  mapProvider: z.string(),
+  aerialImageUrl: z.string().nullable().optional(),
+  streetViewUrl: z.string().nullable().optional(),
+  warnings: z.array(z.string())
+});
+
 export const rankedListingSchema = z.object({
   listing: listingSchema,
   score: z.number().min(0).max(100),
@@ -82,6 +101,16 @@ export const lotSearchResponseSchema = z.object({
   source: sourceMetadataSchema.nullable().optional()
 });
 
+export const parcelDetailResponseSchema = z.object({
+  listing: listingSchema,
+  parcel: parcelSchema.nullable(),
+  mapContext: mapContextSchema,
+  zoningFeatures: z.array(z.unknown()),
+  permitHistory: z.array(z.unknown()),
+  warnings: z.array(z.string()),
+  sources: z.array(sourceMetadataSchema)
+});
+
 export const complianceFindingSchema = z.object({
   code: z.string().min(1),
   title: z.string().min(1),
@@ -96,4 +125,5 @@ export type UserBuildSpec = z.infer<typeof userBuildSpecSchema>;
 export type IntakeNormalizeRequest = z.infer<typeof intakeNormalizeRequestSchema>;
 export type NormalizedBuildSpecResponse = z.infer<typeof normalizedBuildSpecResponseSchema>;
 export type LotSearchResponse = z.infer<typeof lotSearchResponseSchema>;
+export type ParcelDetailResponse = z.infer<typeof parcelDetailResponseSchema>;
 export type ComplianceFinding = z.infer<typeof complianceFindingSchema>;

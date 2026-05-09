@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 3 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, and MVP lot discovery:
+Stage 4 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, and selected-lot context:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -23,6 +23,9 @@ Stage 3 establishes the system foundation, the first user-facing intake path, of
 - Static Kaggle fallback listing adapter, explicitly marked as non-current prototype data.
 - Lot ranking by budget fit, lot size fit, building size fit, bedroom fit, unit-count fit, and warning status.
 - `/listings/search` API route and website button for prototype lot discovery.
+- `/listings/{listing_id}/detail` API route for selected-lot context.
+- Map context with coordinates, street-view link, optional aerial image URL, and missing-data warnings.
+- Website lot-detail panel after selecting a ranked prototype lot.
 
 ## Source Priority
 
@@ -76,6 +79,20 @@ Stage 3 ranks candidate lot/listing records using deterministic scoring:
 - source/current-inventory warnings
 
 Kaggle fallback rows must always return `current_inventory = false`, `source_mode = "prototype_static_dataset"`, and a prototype note. Licensed MLS/IDX sources are the only intended production path for live active listings.
+
+## Parcel Detail and Map Context
+
+Stage 4 selected-lot context must include:
+
+- selected listing record
+- prototype parcel shell when no official parcel id is available
+- coordinates when available
+- street-view URL when coordinates are available
+- aerial/static-map URL only when a map provider token is configured
+- explicit warnings for missing parcel id, zoning joins, permit joins, or imagery
+- source metadata from the listing and public-data providers
+
+Prototype detail views must not imply official parcel boundaries or city approval.
 
 ## Agent Responsibilities
 

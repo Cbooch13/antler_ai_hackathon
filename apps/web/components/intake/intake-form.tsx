@@ -5,9 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type NormalizedBuildSpecResponse,
+  type ParcelDetailResponse,
   type UserBuildSpec,
   lotSearchResponseSchema,
   normalizedBuildSpecResponseSchema,
+  parcelDetailResponseSchema,
   userBuildSpecSchema
 } from "@/lib/schemas";
 import type { LotSearchResponse } from "@/lib/schemas";
@@ -35,9 +37,11 @@ export function IntakeForm() {
   );
   const [result, setResult] = useState<NormalizedBuildSpecResponse | null>(null);
   const [lotSearch, setLotSearch] = useState<LotSearchResponse | null>(null);
+  const [parcelDetail, setParcelDetail] = useState<ParcelDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isNormalizing, setIsNormalizing] = useState(false);
   const [isSearchingLots, setIsSearchingLots] = useState(false);
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
   const {
     register,
@@ -64,6 +68,7 @@ export function IntakeForm() {
           : []
     });
     setLotSearch(null);
+    setParcelDetail(null);
   }
 
   async function normalizeText() {
@@ -78,17 +83,13 @@ export function IntakeForm() {
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error(
-            "Listings endpoint not found. Restart the FastAPI server so it is running Stage 3."
-          );
-        }
         throw new Error(`API returned ${response.status}`);
       }
 
       const parsed = normalizedBuildSpecResponseSchema.parse(await response.json());
       setResult(parsed);
       setLotSearch(null);
+      setParcelDetail(null);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -121,14 +122,39 @@ export function IntakeForm() {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error(
+            "Listings endpoint not found. Restart the FastAPI server so it is running Stage 3 or later."
+          );
+        }
         throw new Error(`API returned ${response.status}`);
       }
 
       setLotSearch(lotSearchResponseSchema.parse(await response.json()));
+      setParcelDetail(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not search prototype lots.");
     } finally {
       setIsSearchingLots(false);
+    }
+  }
+
+  async function loadParcelDetail(listingId: string) {
+    setIsLoadingDetail(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/listings/${listingId}/detail`);
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      setParcelDetail(parcelDetailResponseSchema.parse(await response.json()));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load parcel context.");
+    } finally {
+      setIsLoadingDetail(false);
     }
   }
 
@@ -251,9 +277,43 @@ export function IntakeForm() {
                     {candidate.listing.units} unit
                   </p>
                   <p>{candidate.listing.prototypeNote}</p>
+                  <button
+                    type="button"
+                    onClick={() => loadParcelDetail(candidate.listing.listingId)}
+                    disabled={isLoadingDetail}
+                  >
+                    {isLoadingDetail ? "Loading..." : "View Context"}
+                  </button>
                 </article>
               ))}
             </div>
+          </div>
+        ) : null}
+
+        {parcelDetail ? (
+          <div className="parcel-detail">
+            <h3>Lot Context</h3>
+            <strong>{parcelDetail.listing.address}</strong>
+            <p>
+              Coordinates: {parcelDetail.mapContext.latitude ?? "unknown"},{" "}
+              {parcelDetail.mapContext.longitude ?? "unknown"}
+            </p>
+            {parcelDetail.mapContext.aerialImageUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={parcelDetail.mapContext.aerialImageUrl} alt="Aerial map context" />
+            ) : null}
+            <div className="context-links">
+              {parcelDetail.mapContext.streetViewUrl ? (
+                <a href={parcelDetail.mapContext.streetViewUrl} target="_blank" rel="noreferrer">
+                  Open Street View
+                </a>
+              ) : null}
+            </div>
+            {[...parcelDetail.warnings, ...parcelDetail.mapContext.warnings].map((warning) => (
+              <p className="warning" key={warning}>
+                {warning}
+              </p>
+            ))}
           </div>
         ) : null}
       </aside>

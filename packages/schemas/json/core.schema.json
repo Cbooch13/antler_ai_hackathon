@@ -67,6 +67,22 @@
         }
       }
     },
+    "MapContext": {
+      "type": "object",
+      "required": ["mapProvider", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "mapProvider": { "type": "string" },
+        "aerialImageUrl": { "type": "string" },
+        "streetViewUrl": { "type": "string" },
+        "warnings": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "PermitRecord": {
       "type": "object",
       "required": ["permitId", "raw", "sources"],

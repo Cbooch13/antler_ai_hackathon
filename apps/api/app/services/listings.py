@@ -1,5 +1,10 @@
+import os
+
 from integrations import kaggle_source_metadata, load_kaggle_static_listing_fixtures
 from realestate_schemas import (
+    MapContext,
+    Parcel,
+    ParcelDetailResponse,
     Listing,
     ListingSourceMode,
     LotSearchRequest,
@@ -43,6 +48,52 @@ def search_lots(request: LotSearchRequest) -> LotSearchResponse:
 def rank_listings(listings: list[Listing], spec: UserBuildSpec) -> list[RankedListing]:
     ranked = [_score_listing(listing, spec) for listing in listings]
     return sorted(ranked, key=lambda candidate: candidate.score, reverse=True)
+
+
+def get_listing_detail(listing_id: str) -> ParcelDetailResponse | None:
+    listing = next(
+        (
+            candidate
+            for candidate in load_kaggle_static_listing_fixtures()
+            if candidate.listing_id == listing_id
+        ),
+        None,
+    )
+    if listing is None:
+        return None
+
+    warnings = [
+        "Prototype listing context only; this is not active inventory.",
+        "Parcel boundaries, zoning, and permits require official verification.",
+    ]
+    map_context = _map_context_for_listing(listing)
+    parcel = Parcel(
+        parcel_id=listing.parcel_id or f"prototype-{listing.listing_id}",
+        address=listing.address,
+        lot_sqft=listing.lot_sqft,
+        latitude=listing.latitude,
+        longitude=listing.longitude,
+        sources=listing.sources,
+    )
+    permit_history = []
+    zoning_features = []
+
+    if not listing.parcel_id:
+        warnings.append("No official parcel id is attached to this static fallback row yet.")
+    if not zoning_features:
+        warnings.append("No zoning feature has been joined to this prototype row yet.")
+    if not permit_history:
+        warnings.append("No permit history has been joined to this prototype row yet.")
+
+    return ParcelDetailResponse(
+        listing=listing,
+        parcel=parcel,
+        map_context=map_context,
+        zoning_features=zoning_features,
+        permit_history=permit_history,
+        warnings=warnings,
+        sources=listing.sources,
+    )
 
 
 def _score_listing(listing: Listing, spec: UserBuildSpec) -> RankedListing:
@@ -102,5 +153,34 @@ def _score_listing(listing: Listing, spec: UserBuildSpec) -> RankedListing:
         listing=listing,
         score=bounded,
         rank_reasons=reasons,
+        warnings=warnings,
+    )
+
+
+def _map_context_for_listing(listing: Listing) -> MapContext:
+    warnings: list[str] = []
+    if listing.latitude is None or listing.longitude is None:
+        warnings.append("No coordinates are available for map context.")
+        return MapContext(warnings=warnings)
+
+    mapbox_token = os.getenv("NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN")
+    aerial_url = None
+    if mapbox_token:
+        aerial_url = (
+            "https://api.mapbox.com/styles/v1/mapbox/satellite-v9/static/"
+            f"{listing.longitude},{listing.latitude},17,0/640x360?access_token={mapbox_token}"
+        )
+    else:
+        warnings.append("Mapbox token is not configured, so aerial image URL is unavailable.")
+
+    street_view_url = (
+        "https://www.google.com/maps/@?api=1&map_action=pano"
+        f"&viewpoint={listing.latitude},{listing.longitude}"
+    )
+    return MapContext(
+        latitude=listing.latitude,
+        longitude=listing.longitude,
+        aerial_image_url=aerial_url,
+        street_view_url=street_view_url,
         warnings=warnings,
     )

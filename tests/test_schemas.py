@@ -9,7 +9,9 @@ from realestate_schemas import (
     Confidence,
     Listing,
     ListingSourceMode,
+    MapContext,
     Parcel,
+    ParcelDetailResponse,
     PermitRecord,
     PropertyType,
     RiskTolerance,
@@ -138,3 +140,32 @@ def test_listing_static_source_contract_requires_inventory_flag() -> None:
 
     assert listing.current_inventory is False
     assert listing.model_dump(by_alias=True)["sourceMode"] == "prototype_static_dataset"
+
+
+def test_parcel_detail_contract_supports_missing_official_joins() -> None:
+    source = SourceMetadata(
+        source_name="Kaggle Austin housing prices dataset",
+        source_url="https://www.kaggle.com/datasets/ericpierce/austinhousingprices",
+        retrieved_at=datetime.now(timezone.utc),
+        confidence=Confidence.LOW,
+    )
+    listing = Listing(
+        listingId="kaggle-austin-001",
+        address="Central Austin prototype comp",
+        priceUsd=825_000,
+        sourceMode=ListingSourceMode.PROTOTYPE_STATIC_DATASET,
+        currentInventory=False,
+        units=2,
+        sources=[source],
+    )
+
+    detail = ParcelDetailResponse(
+        listing=listing,
+        parcel=None,
+        mapContext=MapContext(latitude=30.298, longitude=-97.741),
+        warnings=["No zoning feature has been joined yet."],
+        sources=[source],
+    )
+
+    assert detail.map_context.map_provider == "mapbox"
+    assert detail.model_dump(by_alias=True)["mapContext"]["latitude"] == 30.298

@@ -183,12 +183,14 @@ span,
   font-size: 1rem;
 }
 
-.results {
+.results,
+.parcel-detail {
   display: grid;
   gap: 12px;
 }
 
-.results h3 {
+.results h3,
+.parcel-detail h3 {
   margin: 0;
   font-size: 1rem;
 }
@@ -223,6 +225,33 @@ span,
   margin: 0;
   font-size: 0.86rem;
   line-height: 1.4;
+}
+
+.result-card button {
+  margin-top: 4px;
+}
+
+.parcel-detail {
+  padding: 14px;
+  border: 1px solid #d9ddd5;
+  background: #fbfbf8;
+}
+
+.parcel-detail p {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.parcel-detail img {
+  display: block;
+  width: 100%;
+  border: 1px solid #d9ddd5;
+}
+
+.context-links a {
+  color: #255f5a;
+  font-weight: 750;
 }
 
 pre {
