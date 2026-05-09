@@ -33,7 +33,14 @@ def test_compliance_route_returns_advisory_findings() -> None:
     assert payload["listing"]["listingId"] == "kaggle-austin-001"
     assert payload["parcel"]["parcelId"] == "prototype-kaggle-austin-001"
     assert any(metric["label"] == "Front setback" for metric in payload["metrics"])
-    assert any(metric["label"] == "Crime statistics" for metric in payload["metrics"])
+    assert any(
+        metric["label"] == "Front setback" and metric["basis"] == "estimated"
+        for metric in payload["metrics"]
+    )
+    assert any(
+        metric["label"] == "Crime statistics" and metric["basis"] == "public_data_pending"
+        for metric in payload["metrics"]
+    )
     assert any(
         metric["label"] == "Lot size" and metric["value"] == "6,600 sqft"
         for metric in payload["metrics"]

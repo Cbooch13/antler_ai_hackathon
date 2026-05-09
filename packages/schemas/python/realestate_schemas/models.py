@@ -42,6 +42,13 @@ class FindingStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
+class MetricBasis(str, Enum):
+    KNOWN = "known"
+    ESTIMATED = "estimated"
+    PUBLIC_DATA_PENDING = "public_data_pending"
+    UNKNOWN = "unknown"
+
+
 class DocumentStatus(str, Enum):
     MISSING = "missing"
     UPLOADED = "uploaded"
@@ -227,6 +234,7 @@ class ComplianceMetric(ContractModel):
     category: str = Field(min_length=1)
     label: str = Field(min_length=1)
     value: str = Field(min_length=1)
+    basis: MetricBasis
     status: FindingStatus
     confidence: Confidence
     source: str = Field(min_length=1)

@@ -6,6 +6,7 @@ from realestate_schemas import (
     Confidence,
     FindingStatus,
     Listing,
+    MetricBasis,
     Parcel,
     UserBuildSpec,
 )
@@ -48,11 +49,16 @@ def build_compliance_metrics(
     listing: Listing,
     parcel: Parcel,
 ) -> list[ComplianceMetric]:
+    zoning = parcel.zoning or _estimate_zoning(listing)
+    lot_sqft = parcel.lot_sqft or listing.lot_sqft
+    coverage = _coverage_ratio(listing.building_sqft, lot_sqft)
+
     return [
         _metric(
             "Lot information",
             "Address",
             listing.address,
+            MetricBasis.KNOWN,
             FindingStatus.PASSES,
             Confidence.LOW,
             "Kaggle static fallback row",
@@ -62,6 +68,7 @@ def build_compliance_metrics(
             "Lot information",
             "Part of town",
             listing.neighborhood or "Unknown",
+            MetricBasis.KNOWN if listing.neighborhood else MetricBasis.UNKNOWN,
             FindingStatus.PASSES if listing.neighborhood else FindingStatus.UNKNOWN,
             Confidence.LOW,
             "Kaggle static fallback row",
@@ -70,16 +77,18 @@ def build_compliance_metrics(
         _metric(
             "Lot information",
             "Lot size",
-            _format_sqft(listing.lot_sqft),
-            _target_status(listing.lot_sqft, spec.target_lot_sqft),
+            _format_sqft(lot_sqft),
+            MetricBasis.KNOWN if lot_sqft else MetricBasis.UNKNOWN,
+            _target_status(lot_sqft, spec.target_lot_sqft),
             Confidence.LOW,
-            "Kaggle static fallback row",
+            "Kaggle static fallback row cross-check target: Travis County Appraisal District parcel records",
             _target_note("Target lot size", spec.target_lot_sqft),
         ),
         _metric(
             "Lot information",
             "Requested units",
             str(spec.units),
+            MetricBasis.KNOWN,
             FindingStatus.PASSES,
             Confidence.HIGH,
             "User intake",
@@ -89,6 +98,7 @@ def build_compliance_metrics(
             "Lot information",
             "Recorded units",
             str(listing.units),
+            MetricBasis.KNOWN,
             FindingStatus.PASSES if listing.units >= spec.units else FindingStatus.WARNING,
             Confidence.LOW,
             "Kaggle static fallback row",
@@ -97,43 +107,53 @@ def build_compliance_metrics(
         _metric(
             "Zoning",
             "Zoning district",
-            parcel.zoning or "Unknown",
-            FindingStatus.UNKNOWN if parcel.zoning is None else FindingStatus.PASSES,
+            zoning,
+            MetricBasis.KNOWN if parcel.zoning else MetricBasis.ESTIMATED,
+            FindingStatus.PASSES if parcel.zoning else FindingStatus.WARNING,
             Confidence.LOW,
             "Austin GIS zoning join",
-            "Official zoning has not been joined for this prototype parcel.",
+            (
+                "Official zoning has not been joined; SF-3 is a conservative residential "
+                "infill placeholder until the Austin zoning FeatureServer is queried."
+            )
+            if parcel.zoning is None
+            else None,
         ),
         _metric(
             "Setbacks",
             "Front setback",
-            "Unknown",
-            FindingStatus.UNKNOWN,
+            _estimated_setback(zoning, "front"),
+            MetricBasis.ESTIMATED,
+            FindingStatus.WARNING,
             Confidence.LOW,
             "Austin Land Development Code",
-            "Requires official zoning district, lot geometry, and code rule lookup.",
+            "Advisory SF-3-style estimate; verify against official zoning, lot geometry, compatibility, and current code.",
         ),
         _metric(
             "Setbacks",
             "Side setback",
-            "Unknown",
-            FindingStatus.UNKNOWN,
+            _estimated_setback(zoning, "side"),
+            MetricBasis.ESTIMATED,
+            FindingStatus.WARNING,
             Confidence.LOW,
             "Austin Land Development Code",
-            "Requires official zoning district and lot geometry.",
+            "Advisory SF-3-style estimate; side setbacks can change with lot width, height, use, and overlays.",
         ),
         _metric(
             "Setbacks",
             "Rear setback",
-            "Unknown",
-            FindingStatus.UNKNOWN,
+            _estimated_setback(zoning, "rear"),
+            MetricBasis.ESTIMATED,
+            FindingStatus.WARNING,
             Confidence.LOW,
             "Austin Land Development Code",
-            "Requires official zoning district and lot geometry.",
+            "Advisory SF-3-style estimate; verify with survey, zoning, and code review.",
         ),
         _metric(
             "Building coverage",
             "Building square footage",
             _format_sqft(listing.building_sqft),
+            MetricBasis.KNOWN if listing.building_sqft else MetricBasis.UNKNOWN,
             _target_status(listing.building_sqft, spec.target_building_sqft, lower_is_warning=False),
             Confidence.LOW,
             "Kaggle static fallback row",
@@ -142,56 +162,62 @@ def build_compliance_metrics(
         _metric(
             "Building coverage",
             "FAR / building coverage",
-            "Unknown",
-            FindingStatus.UNKNOWN,
+            _format_percent(coverage),
+            MetricBasis.ESTIMATED if coverage is not None else MetricBasis.UNKNOWN,
+            FindingStatus.WARNING if coverage is not None else FindingStatus.UNKNOWN,
             Confidence.LOW,
-            "Austin Land Development Code",
-            "Requires zoning district, official lot area, and building envelope rules.",
+            "Derived from Kaggle building sqft and lot sqft; code limits require official zoning and envelope rules",
+            "Existing structure ratio only; not max allowed FAR/building coverage.",
         ),
         _metric(
             "Building coverage",
             "Impervious cover",
-            "Unknown",
-            FindingStatus.UNKNOWN,
+            _estimated_impervious_cover(coverage),
+            MetricBasis.ESTIMATED if coverage is not None else MetricBasis.UNKNOWN,
+            FindingStatus.WARNING if coverage is not None else FindingStatus.UNKNOWN,
             Confidence.LOW,
             "Austin Land Development Code",
-            "Requires site plan, lot geometry, and surface coverage data.",
+            "Rough estimate from building footprint plus driveway/patio allowance; site plan and survey required.",
         ),
         _metric(
             "Environmental",
             "Tree ordinance risk",
-            "Unknown",
+            "Estimate: medium",
+            MetricBasis.PUBLIC_DATA_PENDING,
             FindingStatus.UNKNOWN,
             Confidence.LOW,
-            "Austin tree review",
-            "Requires tree survey or official tree data.",
+            "Austin Open Data tree inventory / arborist survey",
+            "Public tree inventory can screen nearby city trees, but private protected trees need a survey.",
         ),
         _metric(
             "Environmental",
             "Floodplain / WUI overlays",
-            "Unknown",
+            "Public overlay join pending",
+            MetricBasis.PUBLIC_DATA_PENDING,
             FindingStatus.UNKNOWN,
             Confidence.LOW,
-            "Austin GIS overlay joins",
-            "Overlay layers are not joined in this stage.",
+            "Austin WUI Code Overlay FeatureServer and FEMA floodplain FeatureServer",
+            "Use parcel coordinates for spatial joins before design decisions.",
         ),
         _metric(
             "Public safety",
             "Crime statistics",
-            "Unknown",
+            "Public incident join pending",
+            MetricBasis.PUBLIC_DATA_PENDING,
             FindingStatus.UNKNOWN,
             Confidence.LOW,
-            "Austin public safety data",
-            "Crime data is not integrated yet and should be sourced, dated, and normalized separately.",
+            "Austin Open Data crime reports",
+            "Join recent incident records by radius and date window; show counts by category, not a safety conclusion.",
         ),
         _metric(
             "Permitting",
             "Permit history",
-            "Unknown",
+            "Public permit join pending",
+            MetricBasis.PUBLIC_DATA_PENDING,
             FindingStatus.UNKNOWN,
             Confidence.LOW,
             "Austin permit data",
-            "Permit records are available but not joined to this prototype parcel yet.",
+            "Austin permit records are already available in integrations and should be address/parcel matched next.",
         ),
     ]
 
@@ -200,6 +226,7 @@ def _metric(
     category: str,
     label: str,
     value: str,
+    basis: MetricBasis,
     status: FindingStatus,
     confidence: Confidence,
     source: str,
@@ -209,6 +236,7 @@ def _metric(
         category=category,
         label=label,
         value=value,
+        basis=basis,
         status=status,
         confidence=confidence,
         source=source,
@@ -238,3 +266,40 @@ def _target_note(label: str, target: float | None) -> str | None:
     if target is None:
         return None
     return f"{label}: {target:,.0f} sqft."
+
+
+def _estimate_zoning(listing: Listing) -> str:
+    if listing.units >= 2:
+        return "SF-3 (estimated)"
+    return "SF-3 (estimated)"
+
+
+def _estimated_setback(zoning: str, setback: str) -> str:
+    if "SF-3" not in zoning:
+        return "Requires zoning-specific lookup"
+
+    estimates = {
+        "front": "25 ft estimate",
+        "side": "5 ft estimate",
+        "rear": "10 ft estimate",
+    }
+    return estimates[setback]
+
+
+def _coverage_ratio(building_sqft: float | None, lot_sqft: float | None) -> float | None:
+    if not building_sqft or not lot_sqft:
+        return None
+    return building_sqft / lot_sqft
+
+
+def _format_percent(value: float | None) -> str:
+    if value is None:
+        return "Unknown"
+    return f"{value * 100:.1f}% existing building-to-lot ratio"
+
+
+def _estimated_impervious_cover(building_coverage: float | None) -> str:
+    if building_coverage is None:
+        return "Unknown"
+    estimated = min(building_coverage + 0.12, 1.0)
+    return f"{estimated * 100:.1f}% rough impervious-cover estimate"

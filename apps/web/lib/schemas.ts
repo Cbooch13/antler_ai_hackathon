@@ -126,6 +126,7 @@ export const complianceMetricSchema = z.object({
   category: z.string().min(1),
   label: z.string().min(1),
   value: z.string().min(1),
+  basis: z.enum(["known", "estimated", "public_data_pending", "unknown"]),
   status: z.enum(["passes", "fails", "warning", "unknown"]),
   confidence: z.enum(["low", "medium", "high"]),
   source: z.string().min(1),

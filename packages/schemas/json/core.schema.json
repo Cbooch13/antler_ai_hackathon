@@ -7,6 +7,10 @@
       "type": "string",
       "enum": ["low", "medium", "high"]
     },
+    "MetricBasis": {
+      "type": "string",
+      "enum": ["known", "estimated", "public_data_pending", "unknown"]
+    },
     "SourceMetadata": {
       "type": "object",
       "required": ["sourceName", "sourceUrl", "retrievedAt", "confidence"],
@@ -191,12 +195,13 @@
     },
     "ComplianceMetric": {
       "type": "object",
-      "required": ["category", "label", "value", "status", "confidence", "source"],
+      "required": ["category", "label", "value", "basis", "status", "confidence", "source"],
       "additionalProperties": false,
       "properties": {
         "category": { "type": "string", "minLength": 1 },
         "label": { "type": "string", "minLength": 1 },
         "value": { "type": "string", "minLength": 1 },
+        "basis": { "$ref": "#/$defs/MetricBasis" },
         "status": {
           "type": "string",
           "enum": ["passes", "fails", "warning", "unknown"]

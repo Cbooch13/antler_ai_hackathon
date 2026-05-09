@@ -383,6 +383,7 @@ export function IntakeForm() {
                 <tr>
                   <th>Category</th>
                   <th>Value</th>
+                  <th>Basis</th>
                   <th>Status</th>
                   <th>Confidence</th>
                   <th>Source / Notes</th>
@@ -396,6 +397,7 @@ export function IntakeForm() {
                       <span>{metric.category}</span>
                     </td>
                     <td>{metric.value}</td>
+                    <td>{metric.basis.replaceAll("_", " ")}</td>
                     <td>{metric.status}</td>
                     <td>{metric.confidence}</td>
                     <td>
