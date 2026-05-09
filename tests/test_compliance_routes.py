@@ -32,6 +32,12 @@ def test_compliance_route_returns_advisory_findings() -> None:
     assert payload["professionalVerificationRequired"] is True
     assert payload["listing"]["listingId"] == "kaggle-austin-001"
     assert payload["parcel"]["parcelId"] == "prototype-kaggle-austin-001"
+    assert any(metric["label"] == "Front setback" for metric in payload["metrics"])
+    assert any(metric["label"] == "Crime statistics" for metric in payload["metrics"])
+    assert any(
+        metric["label"] == "Lot size" and metric["value"] == "6,600 sqft"
+        for metric in payload["metrics"]
+    )
     assert any(finding["code"] == "STATIC-DATASET-SOURCE" for finding in payload["findings"])
     assert any(finding["status"] == "unknown" for finding in payload["findings"])
 

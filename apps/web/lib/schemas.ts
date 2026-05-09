@@ -122,9 +122,20 @@ export const complianceFindingSchema = z.object({
   citations: z.array(sourceMetadataSchema)
 });
 
+export const complianceMetricSchema = z.object({
+  category: z.string().min(1),
+  label: z.string().min(1),
+  value: z.string().min(1),
+  status: z.enum(["passes", "fails", "warning", "unknown"]),
+  confidence: z.enum(["low", "medium", "high"]),
+  source: z.string().min(1),
+  notes: z.string().nullable().optional()
+});
+
 export const complianceEvaluationResponseSchema = z.object({
   listing: listingSchema,
   parcel: parcelSchema,
+  metrics: z.array(complianceMetricSchema),
   findings: z.array(complianceFindingSchema),
   summary: z.string().min(1),
   professionalVerificationRequired: z.boolean()

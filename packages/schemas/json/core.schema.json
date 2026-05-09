@@ -188,6 +188,23 @@
           "items": { "$ref": "#/$defs/SourceMetadata" }
         }
       }
+    },
+    "ComplianceMetric": {
+      "type": "object",
+      "required": ["category", "label", "value", "status", "confidence", "source"],
+      "additionalProperties": false,
+      "properties": {
+        "category": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "value": { "type": "string", "minLength": 1 },
+        "status": {
+          "type": "string",
+          "enum": ["passes", "fails", "warning", "unknown"]
+        },
+        "confidence": { "$ref": "#/$defs/Confidence" },
+        "source": { "type": "string", "minLength": 1 },
+        "notes": { "type": "string" }
+      }
     }
   }
 }

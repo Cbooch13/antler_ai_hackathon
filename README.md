@@ -14,7 +14,7 @@ The system combines:
 
 Current implementation target: **Stage 5 - Compliance Feasibility Engine**.
 
-Stage 5 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, and tests. Future stages should be implemented only after review.
+Stage 5 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 

@@ -101,6 +101,7 @@ Prototype detail views must not imply official parcel boundaries or city approva
 
 Stage 5 compliance rules are deterministic and advisory. They may report:
 
+- compliance table values for lot information, zoning, setbacks, building coverage, environmental overlays, crime statistics, and permit history
 - static dataset limitations
 - lot-size target fit
 - unit-count target fit
@@ -110,6 +111,8 @@ Stage 5 compliance rules are deterministic and advisory. They may report:
 - commercial MVP scope limitations
 
 Compliance results must never imply permit approval. Every finding must include a status, confidence level, professional-verification flag, and citations/source metadata where available.
+
+Metrics whose data has not been integrated must be shown as `Unknown` with a reason, not omitted.
 
 ## Agent Responsibilities
 

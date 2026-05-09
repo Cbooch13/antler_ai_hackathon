@@ -137,6 +137,7 @@ Compliance service
   |
   |-- Load selected lot context
   |-- Run deterministic rules
+  |-- Build compliance metrics table
   |-- Preserve citations/source metadata
   |
   v

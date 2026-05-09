@@ -91,6 +91,7 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "ComplianceFinding" in schema["$defs"]
     assert "PermitRecord" in schema["$defs"]
     assert "Listing" in schema["$defs"]
+    assert "ComplianceMetric" in schema["$defs"]
 
 
 def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:

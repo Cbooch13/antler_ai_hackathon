@@ -150,6 +150,17 @@ describe("complianceEvaluationResponseSchema", () => {
           citations: []
         }
       ],
+      metrics: [
+        {
+          category: "Setbacks",
+          label: "Front setback",
+          value: "Unknown",
+          status: "unknown",
+          confidence: "low",
+          source: "Austin Land Development Code",
+          notes: "Requires official zoning district."
+        }
+      ],
       summary: "1 advisory finding generated; 1 requires review or additional data.",
       professionalVerificationRequired: true
     });

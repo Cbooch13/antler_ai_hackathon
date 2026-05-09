@@ -213,14 +213,6 @@ class ComplianceEvaluationRequest(ContractModel):
     listing_id: str = Field(min_length=1)
 
 
-class ComplianceEvaluationResponse(ContractModel):
-    listing: Listing
-    parcel: Parcel
-    findings: list[ComplianceFinding]
-    summary: str = Field(min_length=1)
-    professional_verification_required: bool = True
-
-
 class ComplianceFinding(ContractModel):
     code: str = Field(min_length=1)
     title: str = Field(min_length=1)
@@ -229,6 +221,25 @@ class ComplianceFinding(ContractModel):
     confidence: Confidence
     professional_verification_required: bool
     citations: list[SourceMetadata] = Field(default_factory=list)
+
+
+class ComplianceMetric(ContractModel):
+    category: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    value: str = Field(min_length=1)
+    status: FindingStatus
+    confidence: Confidence
+    source: str = Field(min_length=1)
+    notes: str | None = None
+
+
+class ComplianceEvaluationResponse(ContractModel):
+    listing: Listing
+    parcel: Parcel
+    metrics: list[ComplianceMetric] = Field(default_factory=list)
+    findings: list[ComplianceFinding]
+    summary: str = Field(min_length=1)
+    professional_verification_required: bool = True
 
 
 class DesignOption(ContractModel):

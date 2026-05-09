@@ -377,6 +377,36 @@ export function IntakeForm() {
           <h3>Compliance Feasibility</h3>
           <p className="section-address">{compliance.listing.address}</p>
           <p>{compliance.summary}</p>
+          <div className="compliance-table-wrap">
+            <table className="compliance-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th>Value</th>
+                  <th>Status</th>
+                  <th>Confidence</th>
+                  <th>Source / Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                {compliance.metrics.map((metric) => (
+                  <tr key={`${metric.category}-${metric.label}`}>
+                    <td>
+                      <strong>{metric.label}</strong>
+                      <span>{metric.category}</span>
+                    </td>
+                    <td>{metric.value}</td>
+                    <td>{metric.status}</td>
+                    <td>{metric.confidence}</td>
+                    <td>
+                      {metric.source}
+                      {metric.notes ? <span>{metric.notes}</span> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           <div className="finding-list">
             {compliance.findings.map((finding) => (
               <article className={`finding-card finding-${finding.status}`} key={finding.code}>
