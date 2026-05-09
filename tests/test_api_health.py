@@ -3,10 +3,10 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
-def test_health_check_reports_stage_two() -> None:
+def test_health_check_reports_stage_three() -> None:
     client = TestClient(create_app())
 
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "stage": "2-public-data-ingestion"}
+    assert response.json() == {"status": "ok", "stage": "3-lot-discovery"}

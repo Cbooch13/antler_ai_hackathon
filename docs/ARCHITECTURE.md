@@ -78,3 +78,26 @@ Normalized PermitRecord / GisFeatureRecord with SourceMetadata
 ```
 
 Stage 2 does not persist records yet. Persistence, spatial joins, stale-data policy, and scheduled workers are deferred to later stages.
+
+## Stage 3 Lot Discovery
+
+```text
+Next.js Intake UI
+  |
+  v
+POST /listings/search
+  |
+  v
+Listing service
+  |
+  |-- Static Kaggle fixture adapter for MVP fallback
+  |-- Future licensed MLS/IDX adapter
+  |
+  v
+Deterministic ranking
+  |
+  v
+LotSearchResponse with currentInventory=false for prototype rows
+```
+
+Stage 3 intentionally does not scrape live listing websites. Static fallback rows are used for demos and workflow validation only.

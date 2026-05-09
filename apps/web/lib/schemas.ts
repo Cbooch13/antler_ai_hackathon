@@ -4,7 +4,9 @@ export const sourceMetadataSchema = z.object({
   sourceName: z.string().min(1),
   sourceUrl: z.string().url(),
   retrievedAt: z.string().datetime(),
-  confidence: z.enum(["low", "medium", "high"])
+  confidence: z.enum(["low", "medium", "high"]),
+  licenseName: z.string().nullable().optional(),
+  notes: z.array(z.string()).default([])
 });
 
 export const userBuildSpecSchema = z.object({
@@ -34,6 +36,52 @@ export const normalizedBuildSpecResponseSchema = z.object({
   warnings: z.array(z.string())
 });
 
+export const listingSchema = z.object({
+  listingId: z.string().min(1),
+  parcelId: z.string().nullable().optional(),
+  address: z.string().min(1),
+  priceUsd: z.number().positive(),
+  lotSqft: z.number().positive().nullable().optional(),
+  buildingSqft: z.number().positive().nullable().optional(),
+  bedrooms: z.number().int().nonnegative().nullable().optional(),
+  bathrooms: z.number().nonnegative().nullable().optional(),
+  units: z.number().int().positive(),
+  latitude: z.number().nullable().optional(),
+  longitude: z.number().nullable().optional(),
+  sourceMode: z.enum([
+    "licensed",
+    "prototype_static_dataset",
+    "prototype_apify",
+    "manual",
+    "public"
+  ]),
+  currentInventory: z.boolean(),
+  dataYear: z.number().int().nullable().optional(),
+  prototypeNote: z.string().nullable().optional(),
+  sources: z.array(sourceMetadataSchema)
+});
+
+export const rankedListingSchema = z.object({
+  listing: listingSchema,
+  score: z.number().min(0).max(100),
+  rankReasons: z.array(z.string()),
+  warnings: z.array(z.string())
+});
+
+export const lotSearchResponseSchema = z.object({
+  sourceMode: z.enum([
+    "licensed",
+    "prototype_static_dataset",
+    "prototype_apify",
+    "manual",
+    "public"
+  ]),
+  currentInventory: z.boolean(),
+  candidates: z.array(rankedListingSchema),
+  warnings: z.array(z.string()),
+  source: sourceMetadataSchema.nullable().optional()
+});
+
 export const complianceFindingSchema = z.object({
   code: z.string().min(1),
   title: z.string().min(1),
@@ -47,4 +95,5 @@ export const complianceFindingSchema = z.object({
 export type UserBuildSpec = z.infer<typeof userBuildSpecSchema>;
 export type IntakeNormalizeRequest = z.infer<typeof intakeNormalizeRequestSchema>;
 export type NormalizedBuildSpecResponse = z.infer<typeof normalizedBuildSpecResponseSchema>;
+export type LotSearchResponse = z.infer<typeof lotSearchResponseSchema>;
 export type ComplianceFinding = z.infer<typeof complianceFindingSchema>;

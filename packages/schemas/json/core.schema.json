@@ -24,6 +24,49 @@
         }
       }
     },
+    "Listing": {
+      "type": "object",
+      "required": [
+        "listingId",
+        "address",
+        "priceUsd",
+        "sourceMode",
+        "currentInventory",
+        "units",
+        "sources"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "listingId": { "type": "string", "minLength": 1 },
+        "parcelId": { "type": "string" },
+        "address": { "type": "string", "minLength": 1 },
+        "priceUsd": { "type": "number", "exclusiveMinimum": 0 },
+        "lotSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "buildingSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "bedrooms": { "type": "integer", "minimum": 0 },
+        "bathrooms": { "type": "number", "minimum": 0 },
+        "units": { "type": "integer", "minimum": 1 },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+        "sourceMode": {
+          "type": "string",
+          "enum": [
+            "licensed",
+            "prototype_static_dataset",
+            "prototype_apify",
+            "manual",
+            "public"
+          ]
+        },
+        "currentInventory": { "type": "boolean" },
+        "dataYear": { "type": "integer" },
+        "prototypeNote": { "type": "string" },
+        "sources": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SourceMetadata" }
+        }
+      }
+    },
     "PermitRecord": {
       "type": "object",
       "required": ["permitId", "raw", "sources"],

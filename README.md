@@ -12,9 +12,9 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 2 - Public Austin Data Ingestion**.
+Current implementation target: **Stage 3 - Listing and Lot Discovery**.
 
-Stage 2 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic rule stub, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, and tests. Future stages should be implemented only after review.
+Stage 3 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic rule stub, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 
@@ -58,6 +58,14 @@ Stage 2 public-data endpoints:
 curl "http://127.0.0.1:8000/data/austin/permits/recent?limit=5"
 curl "http://127.0.0.1:8000/data/austin/zoning/sample?limit=5"
 curl "http://127.0.0.1:8000/data/austin/parcels/sample?limit=5"
+```
+
+Stage 3 lot discovery endpoint:
+
+```bash
+curl -X POST "http://127.0.0.1:8000/listings/search" \
+  -H "Content-Type: application/json" \
+  -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"sourceMode":"prototype_static_dataset","limit":5}'
 ```
 
 ## Important Disclaimer

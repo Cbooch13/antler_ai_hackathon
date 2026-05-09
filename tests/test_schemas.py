@@ -7,6 +7,8 @@ from pydantic import ValidationError
 
 from realestate_schemas import (
     Confidence,
+    Listing,
+    ListingSourceMode,
     Parcel,
     PermitRecord,
     PropertyType,
@@ -86,6 +88,7 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert schema["$defs"]["UserBuildSpec"]["properties"]["city"]["const"] == "Austin"
     assert "ComplianceFinding" in schema["$defs"]
     assert "PermitRecord" in schema["$defs"]
+    assert "Listing" in schema["$defs"]
 
 
 def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
@@ -108,3 +111,30 @@ def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
     assert permit.permit_id == "BP-2024-001"
     assert permit.model_dump(by_alias=True)["valuationUsd"] == 650_000
     assert permit.sources[0].notes == ["verify official status"]
+
+
+def test_listing_static_source_contract_requires_inventory_flag() -> None:
+    source = SourceMetadata(
+        source_name="Kaggle Austin housing prices dataset",
+        source_url="https://www.kaggle.com/datasets/ericpierce/austinhousingprices",
+        retrieved_at=datetime.now(timezone.utc),
+        confidence=Confidence.LOW,
+        license_name="GPL-2.0",
+    )
+
+    listing = Listing(
+        listingId="kaggle-austin-001",
+        address="Central Austin prototype comp",
+        priceUsd=825_000,
+        lotSqft=6_600,
+        buildingSqft=2_150,
+        units=2,
+        sourceMode=ListingSourceMode.PROTOTYPE_STATIC_DATASET,
+        currentInventory=False,
+        dataYear=2021,
+        prototypeNote="Prototype static dataset row. This is not an active listing.",
+        sources=[source],
+    )
+
+    assert listing.current_inventory is False
+    assert listing.model_dump(by_alias=True)["sourceMode"] == "prototype_static_dataset"

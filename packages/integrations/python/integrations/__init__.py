@@ -10,6 +10,12 @@ from integrations.clients import (
     build_tcad_parcel_client,
     build_zoning_client,
 )
+from integrations.static_listings import (
+    KAGGLE_AUSTIN_HOUSING_LICENSE,
+    KAGGLE_AUSTIN_HOUSING_URL,
+    kaggle_source_metadata,
+    load_kaggle_static_listing_fixtures,
+)
 
 __all__ = [
     "AUSTIN_PERMITS_DATASET_ID",
@@ -22,4 +28,8 @@ __all__ = [
     "SocrataPermitClient",
     "build_tcad_parcel_client",
     "build_zoning_client",
+    "KAGGLE_AUSTIN_HOUSING_LICENSE",
+    "KAGGLE_AUSTIN_HOUSING_URL",
+    "kaggle_source_metadata",
+    "load_kaggle_static_listing_fixtures",
 ]

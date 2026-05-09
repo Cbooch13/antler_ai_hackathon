@@ -6,9 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type NormalizedBuildSpecResponse,
   type UserBuildSpec,
+  lotSearchResponseSchema,
   normalizedBuildSpecResponseSchema,
   userBuildSpecSchema
 } from "@/lib/schemas";
+import type { LotSearchResponse } from "@/lib/schemas";
 
 const apiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
@@ -32,8 +34,10 @@ export function IntakeForm() {
     "I want an ADU-friendly warm modern home in Austin with 4 beds, 3 baths, 2 units, 2200 sqft house, 6500 lot sqft, and a budget of 850k."
   );
   const [result, setResult] = useState<NormalizedBuildSpecResponse | null>(null);
+  const [lotSearch, setLotSearch] = useState<LotSearchResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isNormalizing, setIsNormalizing] = useState(false);
+  const [isSearchingLots, setIsSearchingLots] = useState(false);
 
   const {
     register,
@@ -59,6 +63,7 @@ export function IntakeForm() {
           ? ["Commercial intake is captured, but MVP feasibility confidence is limited."]
           : []
     });
+    setLotSearch(null);
   }
 
   async function normalizeText() {
@@ -78,6 +83,7 @@ export function IntakeForm() {
 
       const parsed = normalizedBuildSpecResponseSchema.parse(await response.json());
       setResult(parsed);
+      setLotSearch(null);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -86,6 +92,38 @@ export function IntakeForm() {
       );
     } finally {
       setIsNormalizing(false);
+    }
+  }
+
+  async function searchPrototypeLots() {
+    if (!result?.spec) {
+      setError("Validate or normalize a complete spec before searching lots.");
+      return;
+    }
+
+    setIsSearchingLots(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/listings/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spec: result.spec,
+          sourceMode: "prototype_static_dataset",
+          limit: 5
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      setLotSearch(lotSearchResponseSchema.parse(await response.json()));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not search prototype lots.");
+    } finally {
+      setIsSearchingLots(false);
     }
   }
 
@@ -174,6 +212,9 @@ export function IntakeForm() {
         <button type="button" onClick={normalizeText} disabled={isNormalizing}>
           {isNormalizing ? "Normalizing..." : "Normalize With API"}
         </button>
+        <button type="button" onClick={searchPrototypeLots} disabled={isSearchingLots || !result?.spec}>
+          {isSearchingLots ? "Searching..." : "Find Prototype Lots"}
+        </button>
 
         {error ? <div className="error">{error}</div> : null}
 
@@ -183,6 +224,33 @@ export function IntakeForm() {
             {JSON.stringify(result ?? (preview.success ? { spec: preview.data } : preview.error), null, 2)}
           </pre>
         </div>
+
+        {lotSearch ? (
+          <div className="results">
+            <h3>Ranked Prototype Lots</h3>
+            {lotSearch.warnings.map((warning) => (
+              <p className="warning" key={warning}>
+                {warning}
+              </p>
+            ))}
+            <div className="result-list">
+              {lotSearch.candidates.map((candidate) => (
+                <article className="result-card" key={candidate.listing.listingId}>
+                  <div>
+                    <strong>{candidate.listing.address}</strong>
+                    <span>{candidate.score}/100</span>
+                  </div>
+                  <p>
+                    ${candidate.listing.priceUsd.toLocaleString()} ·{" "}
+                    {candidate.listing.lotSqft?.toLocaleString() ?? "Unknown"} lot sqft ·{" "}
+                    {candidate.listing.units} unit
+                  </p>
+                  <p>{candidate.listing.prototypeNote}</p>
+                </article>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </aside>
     </section>
   );

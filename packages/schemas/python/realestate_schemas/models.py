@@ -55,6 +55,14 @@ class IngestionSourceKind(str, Enum):
     STATIC_DATASET = "static_dataset"
 
 
+class ListingSourceMode(str, Enum):
+    LICENSED = "licensed"
+    PROTOTYPE_STATIC_DATASET = "prototype_static_dataset"
+    PROTOTYPE_APIFY = "prototype_apify"
+    MANUAL = "manual"
+    PUBLIC = "public"
+
+
 class SourceMetadata(ContractModel):
     source_name: str = Field(min_length=1)
     source_url: HttpUrl
@@ -110,9 +118,38 @@ class Listing(ContractModel):
     address: str
     price_usd: PositiveFloat
     lot_sqft: PositiveFloat | None = None
-    source_mode: str = Field(description="prototype, licensed, manual, or public")
+    building_sqft: PositiveFloat | None = None
+    bedrooms: int | None = Field(default=None, ge=0)
+    bathrooms: float | None = Field(default=None, ge=0)
+    units: PositiveInt = 1
+    latitude: float | None = Field(default=None, ge=-90, le=90)
+    longitude: float | None = Field(default=None, ge=-180, le=180)
+    source_mode: ListingSourceMode
     current_inventory: bool = True
+    data_year: int | None = None
+    prototype_note: str | None = None
     sources: list[SourceMetadata] = Field(default_factory=list)
+
+
+class RankedListing(ContractModel):
+    listing: Listing
+    score: float = Field(ge=0, le=100)
+    rank_reasons: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
+class LotSearchRequest(ContractModel):
+    spec: UserBuildSpec
+    source_mode: ListingSourceMode = ListingSourceMode.PROTOTYPE_STATIC_DATASET
+    limit: int = Field(default=10, ge=1, le=50)
+
+
+class LotSearchResponse(ContractModel):
+    source_mode: ListingSourceMode
+    current_inventory: bool
+    candidates: list[RankedListing] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+    source: SourceMetadata | None = None
 
 
 class PermitRecord(ContractModel):

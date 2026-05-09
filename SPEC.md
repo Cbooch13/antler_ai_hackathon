@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 2 establishes the system foundation, the first user-facing intake path, and official Austin public-data ingestion:
+Stage 3 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, and MVP lot discovery:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -20,6 +20,9 @@ Stage 2 establishes the system foundation, the first user-facing intake path, an
 - Austin Open Data/Socrata permit ingestion for `3syk-w9eu`.
 - Austin ArcGIS zoning and TCAD parcel sample ingestion.
 - Normalized public-data contracts with source URL, retrieval timestamp, confidence, license notes, and raw payload retention.
+- Static Kaggle fallback listing adapter, explicitly marked as non-current prototype data.
+- Lot ranking by budget fit, lot size fit, building size fit, bedroom fit, unit-count fit, and warning status.
+- `/listings/search` API route and website button for prototype lot discovery.
 
 ## Source Priority
 
@@ -60,6 +63,19 @@ Fallback records must include:
 - a user-facing note that the record is for demo, comp, ranking, or workflow validation only
 
 Travis Central Appraisal District or Travis County records may be used to cross-reference parcel/property identity, address details, appraisal context, and ownership/property-record attributes where permitted. These records should not be treated as MLS/listing replacements.
+
+## Lot Discovery Ranking
+
+Stage 3 ranks candidate lot/listing records using deterministic scoring:
+
+- budget fit
+- target lot size fit
+- target building size fit
+- bedroom target fit
+- unit-count target fit
+- source/current-inventory warnings
+
+Kaggle fallback rows must always return `current_inventory = false`, `source_mode = "prototype_static_dataset"`, and a prototype note. Licensed MLS/IDX sources are the only intended production path for live active listings.
 
 ## Agent Responsibilities
 
