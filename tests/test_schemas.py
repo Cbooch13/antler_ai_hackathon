@@ -126,7 +126,7 @@ def test_listing_static_source_contract_requires_inventory_flag() -> None:
 
     listing = Listing(
         listingId="kaggle-austin-001",
-        address="Central Austin prototype comp",
+        address="4307 Avenue G, Austin, TX 78751",
         priceUsd=825_000,
         lotSqft=6_600,
         buildingSqft=2_150,

@@ -70,6 +70,7 @@ def test_listing_search_route_returns_ranked_static_candidates() -> None:
     assert len(payload["candidates"]) == 3
     assert payload["candidates"][0]["listing"]["currentInventory"] is False
     assert payload["source"]["sourceUrl"].endswith("/ericpierce/austinhousingprices")
+    assert "prototype comp" not in payload["candidates"][0]["listing"]["address"]
 
 
 def test_listing_detail_exposes_map_context_and_missing_join_warnings() -> None:

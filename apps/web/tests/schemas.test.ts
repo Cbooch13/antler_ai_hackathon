@@ -68,7 +68,7 @@ describe("lotSearchResponseSchema", () => {
           warnings: ["Static comp only, not active inventory."],
           listing: {
             listingId: "kaggle-austin-001",
-            address: "Central Austin prototype comp",
+            address: "4307 Avenue G, Austin, TX 78751",
             priceUsd: 825000,
             lotSqft: 6600,
             units: 2,
@@ -90,7 +90,7 @@ describe("parcelDetailResponseSchema", () => {
     const result = parcelDetailResponseSchema.safeParse({
       listing: {
         listingId: "kaggle-austin-001",
-        address: "Central Austin prototype comp",
+        address: "4307 Avenue G, Austin, TX 78751",
         priceUsd: 825000,
         lotSqft: 6600,
         units: 2,

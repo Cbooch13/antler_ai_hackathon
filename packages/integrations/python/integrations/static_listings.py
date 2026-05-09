@@ -29,7 +29,7 @@ def load_kaggle_static_listing_fixtures() -> list[Listing]:
     return [
         Listing(
             listing_id="kaggle-austin-001",
-            address="Central Austin prototype comp",
+            address="4307 Avenue G, Austin, TX 78751",
             price_usd=825_000,
             lot_sqft=6_600,
             building_sqft=2_150,
@@ -46,7 +46,7 @@ def load_kaggle_static_listing_fixtures() -> list[Listing]:
         ),
         Listing(
             listing_id="kaggle-austin-002",
-            address="East Austin prototype comp",
+            address="1206 Chicon St, Austin, TX 78702",
             price_usd=695_000,
             lot_sqft=5_200,
             building_sqft=1_850,
@@ -63,7 +63,7 @@ def load_kaggle_static_listing_fixtures() -> list[Listing]:
         ),
         Listing(
             listing_id="kaggle-austin-003",
-            address="North Loop prototype comp",
+            address="5404 Duval St, Austin, TX 78751",
             price_usd=1_050_000,
             lot_sqft=7_400,
             building_sqft=3_050,
@@ -80,7 +80,7 @@ def load_kaggle_static_listing_fixtures() -> list[Listing]:
         ),
         Listing(
             listing_id="kaggle-austin-004",
-            address="South Austin prototype comp",
+            address="2505 Wilson St, Austin, TX 78704",
             price_usd=575_000,
             lot_sqft=8_100,
             building_sqft=1_450,
@@ -97,7 +97,7 @@ def load_kaggle_static_listing_fixtures() -> list[Listing]:
         ),
         Listing(
             listing_id="kaggle-austin-005",
-            address="West Austin prototype comp",
+            address="1704 Hartford Rd, Austin, TX 78703",
             price_usd=1_450_000,
             lot_sqft=10_500,
             building_sqft=3_900,

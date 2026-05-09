@@ -159,164 +159,169 @@ export function IntakeForm() {
   }
 
   return (
-    <section className="intake-grid" aria-label="Project intake">
-      <form className="intake-form" onSubmit={handleSubmit(submitSpec)}>
-        <div className="form-header">
-          <p className="eyebrow">Stage 1</p>
-          <h2>Project Intake</h2>
-        </div>
-
-        <label>
-          Project name
-          <input {...register("projectName")} />
-          {errors.projectName ? <span>{errors.projectName.message}</span> : null}
-        </label>
-
-        <div className="field-row">
-          <label>
-            Property type
-            <select {...register("propertyType")}>
-              <option value="single_family">Single family</option>
-              <option value="adu">ADU</option>
-              <option value="duplex_triplex">Duplex/triplex</option>
-              <option value="commercial">Commercial</option>
-            </select>
-          </label>
+    <section className="workspace" aria-label="Project intake">
+      <div className="intake-grid">
+        <form className="intake-form" onSubmit={handleSubmit(submitSpec)}>
+          <div className="form-header">
+            <p className="eyebrow">Stage 4</p>
+            <h2>Project Intake</h2>
+          </div>
 
           <label>
-            Risk
-            <select {...register("riskTolerance")}>
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </label>
-        </div>
-
-        <div className="field-row">
-          <label>
-            Budget
-            <input type="number" {...register("totalBudgetUsd", { valueAsNumber: true })} />
+            Project name
+            <input {...register("projectName")} />
+            {errors.projectName ? <span>{errors.projectName.message}</span> : null}
           </label>
 
-          <label>
-            Units
-            <input type="number" {...register("units", { valueAsNumber: true })} />
-          </label>
-        </div>
+          <div className="field-row">
+            <label>
+              Property type
+              <select {...register("propertyType")}>
+                <option value="single_family">Single family</option>
+                <option value="adu">ADU</option>
+                <option value="duplex_triplex">Duplex/triplex</option>
+                <option value="commercial">Commercial</option>
+              </select>
+            </label>
 
-        <div className="field-row">
-          <label>
-            Lot sqft
-            <input type="number" {...register("targetLotSqft", { valueAsNumber: true })} />
-          </label>
+            <label>
+              Risk
+              <select {...register("riskTolerance")}>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+              </select>
+            </label>
+          </div>
 
-          <label>
-            Building sqft
-            <input type="number" {...register("targetBuildingSqft", { valueAsNumber: true })} />
-          </label>
-        </div>
+          <div className="field-row">
+            <label>
+              Budget
+              <input type="number" {...register("totalBudgetUsd", { valueAsNumber: true })} />
+            </label>
 
-        <div className="field-row">
-          <label>
-            Beds
-            <input type="number" {...register("bedrooms", { valueAsNumber: true })} />
-          </label>
+            <label>
+              Units
+              <input type="number" {...register("units", { valueAsNumber: true })} />
+            </label>
+          </div>
 
-          <label>
-            Baths
-            <input type="number" step="0.5" {...register("bathrooms", { valueAsNumber: true })} />
-          </label>
-        </div>
+          <div className="field-row">
+            <label>
+              Lot sqft
+              <input type="number" {...register("targetLotSqft", { valueAsNumber: true })} />
+            </label>
 
-        <input type="hidden" value="Austin" {...register("city")} />
-        <input type="hidden" value="TX" {...register("state")} />
+            <label>
+              Building sqft
+              <input type="number" {...register("targetBuildingSqft", { valueAsNumber: true })} />
+            </label>
+          </div>
 
-        <button type="submit">Validate Spec</button>
-      </form>
+          <div className="field-row">
+            <label>
+              Beds
+              <input type="number" {...register("bedrooms", { valueAsNumber: true })} />
+            </label>
 
-      <aside className="intake-side">
+            <label>
+              Baths
+              <input type="number" step="0.5" {...register("bathrooms", { valueAsNumber: true })} />
+            </label>
+          </div>
+
+          <input type="hidden" value="Austin" {...register("city")} />
+          <input type="hidden" value="TX" {...register("state")} />
+
+          <button type="submit">Validate Spec</button>
+        </form>
+
+        <aside className="preview">
+          <h3>Validated Contract</h3>
+          <pre>
+            {JSON.stringify(result ?? (preview.success ? { spec: preview.data } : preview.error), null, 2)}
+          </pre>
+        </aside>
+      </div>
+
+      <section className="conversation-box">
         <label>
           Conversational request
           <textarea value={freeText} onChange={(event) => setFreeText(event.target.value)} />
         </label>
-        <button type="button" onClick={normalizeText} disabled={isNormalizing}>
-          {isNormalizing ? "Normalizing..." : "Normalize With API"}
-        </button>
-        <button type="button" onClick={searchPrototypeLots} disabled={isSearchingLots || !result?.spec}>
-          {isSearchingLots ? "Searching..." : "Find Prototype Lots"}
-        </button>
-
-        {error ? <div className="error">{error}</div> : null}
-
-        <div className="preview">
-          <h3>Validated contract</h3>
-          <pre>
-            {JSON.stringify(result ?? (preview.success ? { spec: preview.data } : preview.error), null, 2)}
-          </pre>
+        <div className="action-row">
+          <button type="button" onClick={normalizeText} disabled={isNormalizing}>
+            {isNormalizing ? "Normalizing..." : "Normalize With API"}
+          </button>
+          <button type="button" onClick={searchPrototypeLots} disabled={isSearchingLots || !result?.spec}>
+            {isSearchingLots ? "Searching..." : "Find Prototype Lots"}
+          </button>
         </div>
+        {error ? <div className="error">{error}</div> : null}
+      </section>
 
-        {lotSearch ? (
-          <div className="results">
-            <h3>Ranked Prototype Lots</h3>
+      {lotSearch ? (
+        <section className="results">
+          <h3>Ranked Prototype Lots</h3>
+          <div className="warning-list">
             {lotSearch.warnings.map((warning) => (
               <p className="warning" key={warning}>
                 {warning}
               </p>
             ))}
-            <div className="result-list">
-              {lotSearch.candidates.map((candidate) => (
-                <article className="result-card" key={candidate.listing.listingId}>
-                  <div>
-                    <strong>{candidate.listing.address}</strong>
-                    <span>{candidate.score}/100</span>
-                  </div>
-                  <p>
-                    ${candidate.listing.priceUsd.toLocaleString()} ·{" "}
-                    {candidate.listing.lotSqft?.toLocaleString() ?? "Unknown"} lot sqft ·{" "}
-                    {candidate.listing.units} unit
-                  </p>
-                  <p>{candidate.listing.prototypeNote}</p>
-                  <button
-                    type="button"
-                    onClick={() => loadParcelDetail(candidate.listing.listingId)}
-                    disabled={isLoadingDetail}
-                  >
-                    {isLoadingDetail ? "Loading..." : "View Context"}
-                  </button>
-                </article>
-              ))}
-            </div>
           </div>
-        ) : null}
-
-        {parcelDetail ? (
-          <div className="parcel-detail">
-            <h3>Lot Context</h3>
-            <strong>{parcelDetail.listing.address}</strong>
-            <p>
-              Coordinates: {parcelDetail.mapContext.latitude ?? "unknown"},{" "}
-              {parcelDetail.mapContext.longitude ?? "unknown"}
-            </p>
-            {parcelDetail.mapContext.aerialImageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={parcelDetail.mapContext.aerialImageUrl} alt="Aerial map context" />
-            ) : null}
-            <div className="context-links">
-              {parcelDetail.mapContext.streetViewUrl ? (
-                <a href={parcelDetail.mapContext.streetViewUrl} target="_blank" rel="noreferrer">
-                  Open Street View
-                </a>
-              ) : null}
-            </div>
-            {[...parcelDetail.warnings, ...parcelDetail.mapContext.warnings].map((warning) => (
-              <p className="warning" key={warning}>
-                {warning}
-              </p>
+          <div className="result-list">
+            {lotSearch.candidates.map((candidate) => (
+              <article className="result-card" key={candidate.listing.listingId}>
+                <div>
+                  <strong>{candidate.listing.address}</strong>
+                  <span>{candidate.score}/100</span>
+                </div>
+                <p>
+                  ${candidate.listing.priceUsd.toLocaleString()} ·{" "}
+                  {candidate.listing.lotSqft?.toLocaleString() ?? "Unknown"} lot sqft ·{" "}
+                  {candidate.listing.units} unit
+                </p>
+                <p>{candidate.listing.prototypeNote}</p>
+                <button
+                  type="button"
+                  onClick={() => loadParcelDetail(candidate.listing.listingId)}
+                  disabled={isLoadingDetail}
+                >
+                  {isLoadingDetail ? "Loading..." : "View Context"}
+                </button>
+              </article>
             ))}
           </div>
-        ) : null}
-      </aside>
+        </section>
+      ) : null}
+
+      {parcelDetail ? (
+        <section className="parcel-detail">
+          <h3>Lot Context</h3>
+          <strong>{parcelDetail.listing.address}</strong>
+          <p>
+            Coordinates: {parcelDetail.mapContext.latitude ?? "unknown"},{" "}
+            {parcelDetail.mapContext.longitude ?? "unknown"}
+          </p>
+          {parcelDetail.mapContext.aerialImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={parcelDetail.mapContext.aerialImageUrl} alt="Aerial map context" />
+          ) : null}
+          <div className="context-links">
+            {parcelDetail.mapContext.streetViewUrl ? (
+              <a href={parcelDetail.mapContext.streetViewUrl} target="_blank" rel="noreferrer">
+                Open Street View
+              </a>
+            ) : null}
+          </div>
+          {[...parcelDetail.warnings, ...parcelDetail.mapContext.warnings].map((warning) => (
+            <p className="warning" key={warning}>
+              {warning}
+            </p>
+          ))}
+        </section>
+      ) : null}
     </section>
   );
 }

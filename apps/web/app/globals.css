@@ -64,7 +64,7 @@ h2 {
 
 .panel,
 .notice,
-.intake-grid {
+.workspace {
   max-width: 1040px;
   margin: 0 auto;
 }
@@ -96,16 +96,24 @@ h2 {
   background: #e9f1ef;
 }
 
-.intake-grid {
+.workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.86fr);
-  gap: 24px;
-  align-items: start;
+  gap: 18px;
   margin-bottom: 28px;
 }
 
+.intake-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 0.85fr);
+  gap: 24px;
+  align-items: start;
+}
+
 .intake-form,
-.intake-side {
+.preview,
+.conversation-box,
+.results,
+.parcel-detail {
   display: grid;
   gap: 16px;
   padding: 24px;
@@ -115,6 +123,12 @@ h2 {
 
 .form-header h2 {
   margin-bottom: 0;
+}
+
+.action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .field-row {
@@ -174,25 +188,20 @@ span,
   font-size: 0.84rem;
 }
 
-.preview {
-  min-width: 0;
-}
-
 .preview h3 {
   margin: 0 0 10px;
   font-size: 1rem;
-}
-
-.results,
-.parcel-detail {
-  display: grid;
-  gap: 12px;
 }
 
 .results h3,
 .parcel-detail h3 {
   margin: 0;
   font-size: 1rem;
+}
+
+.warning-list {
+  display: grid;
+  gap: 6px;
 }
 
 .warning {
@@ -204,7 +213,12 @@ span,
 
 .result-list {
   display: grid;
-  gap: 10px;
+  grid-auto-columns: minmax(280px, 360px);
+  grid-auto-flow: column;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scroll-snap-type: x proximity;
 }
 
 .result-card {
@@ -213,6 +227,7 @@ span,
   padding: 14px;
   border: 1px solid #d9ddd5;
   background: #fbfbf8;
+  scroll-snap-align: start;
 }
 
 .result-card div {
@@ -232,8 +247,6 @@ span,
 }
 
 .parcel-detail {
-  padding: 14px;
-  border: 1px solid #d9ddd5;
   background: #fbfbf8;
 }
 
@@ -276,8 +289,15 @@ pre {
     padding: 24px;
   }
 
-  .intake-grid,
   .field-row {
     grid-template-columns: 1fr;
+  }
+
+  .intake-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .result-list {
+    grid-auto-columns: minmax(260px, 86vw);
   }
 }
