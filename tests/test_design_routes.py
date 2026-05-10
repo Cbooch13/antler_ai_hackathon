@@ -42,6 +42,14 @@ def test_design_route_returns_one_primary_schematic_option() -> None:
     assert all(option["floorPlans"][0]["visualExports"][0]["format"] == "svg" for option in payload["options"])
     assert all(option["floorPlans"][0]["qualityReport"]["checks"] for option in payload["options"])
     assert all(option["floorPlans"][0]["qualityReport"]["score"] > 0 for option in payload["options"])
+    assert any(
+        "Selected from 7 exemplar-guided local candidate generations" in assumption
+        for assumption in payload["options"][0]["assumptions"]
+    )
+    assert any(
+        check["code"] == "exemplar_fit"
+        for check in payload["options"][0]["floorPlans"][0]["qualityReport"]["checks"]
+    )
     assert all(
         option["floorPlans"][0]["qualityReport"]["status"] in {"passes", "warning"}
         for option in payload["options"]

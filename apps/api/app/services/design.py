@@ -35,7 +35,7 @@ def generate_design_options(
         parcel=compliance.parcel,
         options=options,
         warnings=[
-            "Stage 6E LLM schematic agent outputs are conceptual planning studies only.",
+            "Stage 6K schematic agent outputs are conceptual planning studies only.",
             "When LLM_SCHEMATIC_ENABLED is false or OpenAI is unavailable, the service falls back to the local generator.",
             "Architect, civil engineer, surveyor, attorney, and city review are required before design reliance.",
         ],

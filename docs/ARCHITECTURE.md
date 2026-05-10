@@ -161,7 +161,9 @@ Design service
   |-- Delegates schematic generation to OpenAISchematicDesignAgent
   |-- Uses OpenAI structured outputs when LLM_SCHEMATIC_ENABLED=true
   |-- Falls back to the local SchematicDesignAgent otherwise
+  |-- Retrieves plan exemplars by property type, unit count, bedrooms, target sqft, and lot size
   |-- Generates one primary human-comfort option from spec + property context
+  |-- Locally generates seven exemplar-guided candidates and returns the best-scored plan
   |-- Reconciles room areas to the requested building square footage
   |-- Adds one dimensioned architectural concept plan to the option
   |-- Uses normalized rooms, walls, openings, scale assumptions, and SVG exports
@@ -181,7 +183,7 @@ This is the first tool layer for the agentic loop.
 
 ## Stage 6G Agentic Floor-Plan Revision Loop
 
-Stage 6G adds the first correction loop around the OpenAI schematic planner. When OpenAI generation is enabled, the design service asks the model for structured layout JSON, converts it into floor plans, runs deterministic quality checks, and then returns failing/warning checks to the model for another attempt. The loop stops only when critical checks pass and the quality score is at least 85, or after `LLM_SCHEMATIC_MAX_ATTEMPTS` attempts. If no attempt meets the threshold, the service returns the highest-scoring advisory result with assumptions noting that unresolved warnings remain.
+Stage 6G adds the first correction loop around the OpenAI schematic planner. When OpenAI generation is enabled, the design service asks the model for structured layout JSON, converts it into floor plans, runs deterministic quality checks, and then returns failing/warning checks to the model for another attempt. The loop stops only when critical checks pass and the quality score is at least 85, or after `LLM_SCHEMATIC_MAX_ATTEMPTS` attempts. The default generation budget is seven. If no attempt meets the threshold, the service returns the highest-scoring advisory result with assumptions noting that unresolved warnings remain.
 
 The local generator remains a single-pass fallback so the app can run without an API key.
 
@@ -197,9 +199,15 @@ Stage 6I changes the visual output from colored zoning blocks to an architectura
 
 Stage 6J adds an explicit room-connection graph to every floor plan. Each connection records the source room, target room, connection type, normalized door/opening location, width, and orientation. The renderer uses these connections to draw interior doors/openings, and the quality checker now verifies that every room is reachable from the entry/circulation graph. This makes pathing a first-class contract rather than a decorative SVG detail.
 
-## Stage 6K Agentic Floor-Plan Pipeline
+## Stage 6K Dataset-Retrieved Plan Exemplars
 
-Stage 6K should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6K adds the first retrieved-exemplar layer. The service maintains a small internal precedent library with plan families, room-area ratios, adjacency edges, aspect-ratio targets, and planning notes. These examples are research-cleared placeholders for the MVP; production datasets such as ResPlan, RPLAN, Tell2Design, or licensed internal plans still require license and commercial-use review before use.
+
+The local generator now creates seven exemplar-guided candidates, runs deterministic quality and exemplar-fit checks, and returns only the highest-scoring primary plan. The OpenAI path includes the retrieved exemplars in the structured prompt and uses a default seven-generation revision budget before returning the first accepted plan or the best advisory plan.
+
+## Stage 6L Agentic Floor-Plan Pipeline
+
+Stage 6L should continue replacing direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata
@@ -208,7 +216,7 @@ User brief + selected lot + compliance findings + sun/context metadata
 LLM Planner Agent
   |-- Produces structured floor-plan JSON
   |-- Includes rooms, target areas, levels, adjacency graph, walls, openings, and constraints
-  |-- Produces human-comfort and space-utilization variants
+  |-- Produces one primary human-comfort plan until the realism checks are strong enough for variants
   |
   v
 Deterministic Constraint Tools

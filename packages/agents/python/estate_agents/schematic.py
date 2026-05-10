@@ -30,6 +30,7 @@ respect the requested program, preserve human livability, and explain design tra
 Rules:
 - Produce exactly one option with strategy human_comfort.
 - Use the requested target building square footage for the option.
+- Use retrieved_plan_exemplars as planning precedents for room ratios, adjacency, and public/private zoning.
 - Include reasonable room dimensions in feet and room areas that can reconcile to the target.
 - Prefer public rooms with south/east daylight in Austin; reduce west glazing.
 - Group kitchens, baths, laundry, and ADU wet rooms near wet-wall cores.
@@ -61,48 +62,238 @@ class RoomLayout:
     height: float
 
 
+@dataclass(frozen=True)
+class PlanExemplar:
+    exemplar_id: str
+    name: str
+    property_types: tuple[str, ...]
+    min_units: int
+    max_units: int
+    min_bedrooms: int
+    max_bedrooms: int
+    min_sqft: int
+    max_sqft: int
+    aspect_ratio: float
+    layout_family: str
+    room_area_ratios: dict[str, float]
+    adjacency_edges: tuple[tuple[str, str, str], ...]
+    planning_notes: tuple[str, ...]
+
+
+PLAN_EXEMPLARS: tuple[PlanExemplar, ...] = (
+    PlanExemplar(
+        exemplar_id="central-hall-bungalow",
+        name="Central Hall Bungalow",
+        property_types=("single_family", "adu"),
+        min_units=1,
+        max_units=1,
+        min_bedrooms=2,
+        max_bedrooms=4,
+        min_sqft=1_000,
+        max_sqft=2_600,
+        aspect_ratio=1.5,
+        layout_family="central_hall",
+        room_area_ratios={
+            "public": 0.32,
+            "private": 0.36,
+            "wet_core": 0.12,
+            "circulation": 0.09,
+            "service": 0.06,
+            "flex": 0.05,
+        },
+        adjacency_edges=(
+            ("entry", "living", "direct public arrival"),
+            ("living", "dining", "open shared daylight zone"),
+            ("dining", "kitchen", "short service path"),
+            ("hall", "bedrooms", "buffered private access"),
+            ("bath", "bedrooms", "shared wet core near private rooms"),
+        ),
+        planning_notes=(
+            "Works well for compact Austin infill lots with a single clear public-to-private spine.",
+            "Keeps bedrooms off a hall rather than forcing access through living areas.",
+        ),
+    ),
+    PlanExemplar(
+        exemplar_id="side-hall-infill",
+        name="Side Hall Infill Bar",
+        property_types=("single_family", "adu", "duplex_triplex"),
+        min_units=1,
+        max_units=2,
+        min_bedrooms=2,
+        max_bedrooms=4,
+        min_sqft=1_200,
+        max_sqft=3_000,
+        aspect_ratio=1.75,
+        layout_family="side_hall",
+        room_area_ratios={
+            "public": 0.30,
+            "private": 0.34,
+            "wet_core": 0.13,
+            "circulation": 0.10,
+            "service": 0.06,
+            "flex": 0.04,
+            "unit": 0.03,
+        },
+        adjacency_edges=(
+            ("entry", "side hall", "legible circulation from frontage"),
+            ("side hall", "living", "public room visible from entry"),
+            ("side hall", "bedrooms", "all sleeping rooms directly reachable"),
+            ("kitchen", "laundry", "stacked wet/service zone"),
+            ("second unit", "exterior", "separate unit entry preferred"),
+        ),
+        planning_notes=(
+            "Useful for narrow or deeper infill parcels where a simple circulation spine prevents trapped rooms.",
+            "Wet rooms should align on one side to simplify MEP and future review.",
+        ),
+    ),
+    PlanExemplar(
+        exemplar_id="rear-adu-cottage",
+        name="Rear ADU Cottage Pairing",
+        property_types=("adu", "duplex_triplex"),
+        min_units=2,
+        max_units=2,
+        min_bedrooms=2,
+        max_bedrooms=5,
+        min_sqft=1_500,
+        max_sqft=3_200,
+        aspect_ratio=1.62,
+        layout_family="rear_adu",
+        room_area_ratios={
+            "public": 0.27,
+            "private": 0.31,
+            "wet_core": 0.13,
+            "circulation": 0.08,
+            "service": 0.06,
+            "flex": 0.04,
+            "unit": 0.11,
+        },
+        adjacency_edges=(
+            ("main entry", "living", "front unit public arrival"),
+            ("living", "kitchen", "open daily-use zone"),
+            ("kitchen", "laundry", "shared wet/service wall"),
+            ("bedroom hall", "bedrooms", "private sleeping wing"),
+            ("adu", "exterior", "separate entry and review-required separation"),
+        ),
+        planning_notes=(
+            "Good MVP precedent for a primary home plus compact second unit.",
+            "Maintains a distinct second-unit zone while keeping the service core close to the main wet rooms.",
+        ),
+    ),
+    PlanExemplar(
+        exemplar_id="stacked-urban-duplex",
+        name="Stacked Urban Duplex",
+        property_types=("duplex_triplex", "adu"),
+        min_units=2,
+        max_units=3,
+        min_bedrooms=3,
+        max_bedrooms=6,
+        min_sqft=2_000,
+        max_sqft=4_200,
+        aspect_ratio=1.45,
+        layout_family="stacked_duplex",
+        room_area_ratios={
+            "public": 0.26,
+            "private": 0.33,
+            "wet_core": 0.14,
+            "circulation": 0.11,
+            "service": 0.05,
+            "flex": 0.03,
+            "unit": 0.08,
+        },
+        adjacency_edges=(
+            ("entry", "stairs or hall", "unit separation and vertical circulation"),
+            ("living", "kitchen", "compact repeated unit public zone"),
+            ("wet core", "wet core", "stack plumbing where multi-level review applies"),
+            ("bedrooms", "bath", "short private-room access"),
+            ("unit entries", "exterior", "separate access must be verified"),
+        ),
+        planning_notes=(
+            "Use only as a conceptual precedent until multi-floor and fire-separation rules are modeled.",
+            "Best for larger programs that may not fit comfortably on a single level.",
+        ),
+    ),
+)
+
+
 class SchematicDesignAgent:
     """Generative schematic agent for concept-level architectural plans."""
 
-    def __init__(self, rng: secrets.SystemRandom | None = None) -> None:
+    def __init__(self, rng: secrets.SystemRandom | None = None, candidate_count: int | None = None) -> None:
         self.rng = rng or secrets.SystemRandom()
+        self.candidate_count = candidate_count or _schematic_best_of_count()
 
     def generate(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
         spec = agent_input.spec
         target_sqft = _target_sqft(spec)
-        variant_id = secrets.token_hex(4)
+        exemplars = _retrieve_plan_exemplars(agent_input)
+        candidate_count = max(1, self.candidate_count)
+        candidate_results: list[tuple[float, DesignOption, PlanExemplar]] = []
 
-        return [
-            DesignOption(
-                option_id=f"schematic-human-comfort-{variant_id}",
-                name="Primary Feasibility Plan",
-                strategy="human_comfort",
-                target_building_sqft=target_sqft,
-                units=spec.units,
-                floor_plans=[
-                    self._plan(
-                        spec=spec,
-                        strategy="human_comfort",
-                        plan_id=f"floor-plan-human-comfort-{variant_id}",
-                        name="Primary Feasibility Floor Plan",
-                        total_sqft=target_sqft,
-                        aspect_ratio=self.rng.uniform(1.42, 1.68),
-                        layouts=self._comfort_layouts(spec),
-                        notes=[
-                            "Generated concept prioritizes daylight, generous public rooms, storage, and a legible public-to-private transition.",
-                            "Room dimensions are rounded planning assumptions; architect review is required for measured drawings.",
-                        ],
-                    )
-                ],
-                assumptions=[
-                    "Returns one primary plan while schematic quality thresholds are being tightened.",
-                    "Prioritizes comfort, daylight, room separation, storage, and a clear entry sequence.",
-                    "Groups wet rooms for buildability while keeping bedrooms buffered from the main entry.",
-                    "Uses the full requested building program; room areas are reconciled to the target square footage.",
-                ],
-                compliance_findings=agent_input.warning_findings,
+        for candidate_index in range(candidate_count):
+            exemplar = exemplars[candidate_index % len(exemplars)]
+            option = self._option_from_exemplar(
+                agent_input=agent_input,
+                target_sqft=target_sqft,
+                exemplar=exemplar,
+                candidate_index=candidate_index,
             )
-        ]
+            candidate_results.append((_option_selection_score(option, exemplar), option, exemplar))
+
+        _, best_option, best_exemplar = max(candidate_results, key=lambda result: result[0])
+        best_option.assumptions.extend(
+            [
+                f"Selected from {candidate_count} exemplar-guided local candidate generations.",
+                f"Retrieved precedent used for selected plan: {best_exemplar.name}.",
+                "Returns one primary plan while schematic quality thresholds are being tightened.",
+            ]
+        )
+        for plan in best_option.floor_plans:
+            plan.notes.append(
+                f"Best-of-{candidate_count} selection used exemplar ratios and deterministic quality checks before returning this plan."
+            )
+        return [best_option]
+
+    def _option_from_exemplar(
+        self,
+        agent_input: SchematicAgentInput,
+        target_sqft: float,
+        exemplar: PlanExemplar,
+        candidate_index: int,
+    ) -> DesignOption:
+        spec = agent_input.spec
+        variant_id = secrets.token_hex(4)
+        aspect_ratio = _candidate_aspect_ratio(exemplar, candidate_index)
+        return DesignOption(
+            option_id=f"schematic-human-comfort-{variant_id}",
+            name="Primary Feasibility Plan",
+            strategy="human_comfort",
+            target_building_sqft=target_sqft,
+            units=spec.units,
+            floor_plans=[
+                self._plan(
+                    spec=spec,
+                    strategy="human_comfort",
+                    plan_id=f"floor-plan-human-comfort-{variant_id}",
+                    name="Primary Feasibility Floor Plan",
+                    total_sqft=target_sqft,
+                    aspect_ratio=aspect_ratio,
+                    layouts=self._comfort_layouts(spec, exemplar, candidate_index),
+                    exemplar=exemplar,
+                    notes=[
+                        "Generated concept prioritizes daylight, generous public rooms, storage, and a legible public-to-private transition.",
+                        "Room dimensions are rounded planning assumptions; architect review is required for measured drawings.",
+                        f"Local candidate {candidate_index + 1} used the {exemplar.name} precedent pattern.",
+                    ],
+                )
+            ],
+            assumptions=[
+                "Prioritizes comfort, daylight, room separation, storage, and a clear entry sequence.",
+                "Groups wet rooms for buildability while keeping bedrooms buffered from the main entry.",
+                "Uses the full requested building program; room areas are reconciled to the target square footage.",
+                f"Candidate precedent: {exemplar.name}.",
+            ],
+            compliance_findings=agent_input.warning_findings,
+        )
 
     def _plan(
         self,
@@ -114,6 +305,7 @@ class SchematicDesignAgent:
         aspect_ratio: float,
         layouts: list[RoomLayout],
         notes: list[str],
+        exemplar: PlanExemplar | None = None,
     ) -> FloorPlan:
         footprint_width_ft = math.sqrt(total_sqft * aspect_ratio)
         footprint_depth_ft = total_sqft / footprint_width_ft
@@ -140,6 +332,7 @@ class SchematicDesignAgent:
             sqft_delta=sqft_delta,
             spec=spec,
             strategy=strategy,
+            exemplar=exemplar,
         )
         scale_assumption = (
             f"Concept scale: 1 SVG plan unit = {footprint_width_ft / 100:.2f} ft horizontally "
@@ -189,8 +382,20 @@ class SchematicDesignAgent:
             ],
         )
 
-    def _comfort_layouts(self, spec: UserBuildSpec) -> list[RoomLayout]:
-        public_h = 32
+    def _comfort_layouts(
+        self,
+        spec: UserBuildSpec,
+        exemplar: PlanExemplar | None = None,
+        candidate_index: int = 0,
+    ) -> list[RoomLayout]:
+        if exemplar is not None and exemplar.layout_family == "side_hall":
+            return _side_hall_layouts(spec, candidate_index)
+        if exemplar is not None and exemplar.layout_family == "rear_adu":
+            return _rear_adu_layouts(spec, candidate_index)
+        if exemplar is not None and exemplar.layout_family == "stacked_duplex":
+            return _stacked_duplex_ground_layouts(spec, candidate_index)
+
+        public_h = 31 + (candidate_index % 3)
         adu_h = 22 if spec.units > 1 else 0
         private_h = 100 - public_h - adu_h
         bedrooms = max(1, min(spec.bedrooms or 3, 4))
@@ -307,7 +512,10 @@ class OpenAISchematicDesignAgent:
                 model=self.model,
                 input=[
                     {"role": "system", "content": SCHEMATIC_AGENT_SYSTEM_PROMPT},
-                    {"role": "user", "content": _llm_prompt(agent_input, revision_feedback)},
+                    {
+                        "role": "user",
+                        "content": _llm_prompt(agent_input, revision_feedback, self.max_attempts),
+                    },
                 ],
                 text={
                     "format": {
@@ -352,16 +560,158 @@ def _llm_schematic_enabled() -> bool:
 
 def _llm_schematic_max_attempts() -> int:
     try:
-        return max(1, min(5, int(os.getenv("LLM_SCHEMATIC_MAX_ATTEMPTS", "3"))))
+        return max(1, min(7, int(os.getenv("LLM_SCHEMATIC_MAX_ATTEMPTS", "7"))))
     except ValueError:
-        return 3
+        return 7
+
+
+def _schematic_best_of_count() -> int:
+    try:
+        return max(1, min(7, int(os.getenv("SCHEMATIC_BEST_OF_COUNT", "7"))))
+    except ValueError:
+        return 7
+
+
+def _retrieve_plan_exemplars(agent_input: SchematicAgentInput, limit: int = 3) -> list[PlanExemplar]:
+    scored = [
+        (_exemplar_match_score(exemplar, agent_input), exemplar)
+        for exemplar in PLAN_EXEMPLARS
+    ]
+    ranked = [exemplar for _, exemplar in sorted(scored, key=lambda item: item[0], reverse=True)]
+    return ranked[: max(1, min(limit, len(ranked)))]
+
+
+def _exemplar_match_score(exemplar: PlanExemplar, agent_input: SchematicAgentInput) -> float:
+    spec = agent_input.spec
+    target_sqft = _target_sqft(spec)
+    bedrooms = spec.bedrooms or 3
+    score = 0.0
+    if spec.property_type.value in exemplar.property_types:
+        score += 35
+    if exemplar.min_units <= spec.units <= exemplar.max_units:
+        score += 25
+    else:
+        score -= 15 * abs(spec.units - max(exemplar.min_units, min(spec.units, exemplar.max_units)))
+    if exemplar.min_bedrooms <= bedrooms <= exemplar.max_bedrooms:
+        score += 20
+    else:
+        score -= 4 * abs(bedrooms - max(exemplar.min_bedrooms, min(bedrooms, exemplar.max_bedrooms)))
+    sqft_midpoint = (exemplar.min_sqft + exemplar.max_sqft) / 2
+    sqft_span = max(1, exemplar.max_sqft - exemplar.min_sqft)
+    score += max(0, 20 - 40 * abs(target_sqft - sqft_midpoint) / sqft_span)
+    if agent_input.lot_sqft and agent_input.lot_sqft < 5_500 and exemplar.layout_family in {"side_hall", "stacked_duplex"}:
+        score += 8
+    if agent_input.lot_sqft and agent_input.lot_sqft >= 6_500 and exemplar.layout_family in {"central_hall", "rear_adu"}:
+        score += 6
+    return score
+
+
+def _exemplar_prompt_payload(exemplar: PlanExemplar) -> dict[str, Any]:
+    return {
+        "id": exemplar.exemplar_id,
+        "name": exemplar.name,
+        "layout_family": exemplar.layout_family,
+        "target_aspect_ratio": exemplar.aspect_ratio,
+        "room_area_ratios": exemplar.room_area_ratios,
+        "adjacency_edges": [
+            {"from": start, "to": end, "rationale": rationale}
+            for start, end, rationale in exemplar.adjacency_edges
+        ],
+        "planning_notes": list(exemplar.planning_notes),
+    }
+
+
+def _candidate_aspect_ratio(exemplar: PlanExemplar, candidate_index: int) -> float:
+    offsets = (-0.16, -0.10, -0.05, 0.0, 0.05, 0.10, 0.16)
+    return max(1.22, min(2.15, exemplar.aspect_ratio + offsets[candidate_index % len(offsets)]))
+
+
+def _option_selection_score(option: DesignOption, exemplar: PlanExemplar) -> float:
+    quality_score = _average_quality_score([option])
+    exemplar_fit = _average_exemplar_fit(option, exemplar)
+    warnings = sum(
+        1
+        for plan in option.floor_plans
+        for check in plan.quality_report.checks
+        if check.status == FindingStatus.WARNING
+    )
+    failures = sum(
+        1
+        for plan in option.floor_plans
+        for check in plan.quality_report.checks
+        if check.status == FindingStatus.FAILS
+    )
+    return quality_score * 10 + exemplar_fit - warnings * 2 - failures * 100
+
+
+def _average_exemplar_fit(option: DesignOption, exemplar: PlanExemplar) -> float:
+    if not option.floor_plans:
+        return 0
+    return sum(_exemplar_fit_score(plan.rooms, exemplar) for plan in option.floor_plans) / len(option.floor_plans)
+
+
+def _best_exemplar_for_rooms(
+    rooms: list[FloorPlanRoom],
+    exemplars: list[PlanExemplar],
+) -> PlanExemplar | None:
+    if not rooms or not exemplars:
+        return None
+    return max(exemplars, key=lambda exemplar: _exemplar_fit_score(rooms, exemplar))
+
+
+def _exemplar_fit_score(rooms: list[FloorPlanRoom], exemplar: PlanExemplar) -> float:
+    actual = _room_area_ratios(rooms)
+    if not actual:
+        return 0
+    total_error = 0.0
+    compared = 0
+    for category, target_ratio in exemplar.room_area_ratios.items():
+        actual_ratio = actual.get(category, 0)
+        total_error += abs(actual_ratio - target_ratio)
+        compared += 1
+    if compared == 0:
+        return 0
+    return max(0, 100 - (total_error / compared) * 300)
+
+
+def _room_area_ratios(rooms: list[FloorPlanRoom]) -> dict[str, float]:
+    total = sum(room.estimated_sqft for room in rooms)
+    if total <= 0:
+        return {}
+    category_totals: dict[str, float] = {}
+    for room in rooms:
+        category_totals[_exemplar_area_bucket(room)] = (
+            category_totals.get(_exemplar_area_bucket(room), 0) + room.estimated_sqft
+        )
+    return {category: area / total for category, area in category_totals.items()}
+
+
+def _exemplar_area_bucket(room: FloorPlanRoom) -> str:
+    label = f"{room.name} {room.room_id}".lower()
+    if _is_unit_room(room):
+        return "unit"
+    if room.category in {"entry", "living", "kitchen"}:
+        return "public"
+    if room.category == "bedroom":
+        return "private"
+    if room.category == "bath":
+        return "wet_core"
+    if room.category == "circulation":
+        return "circulation"
+    if room.category == "flex":
+        return "flex"
+    if room.category == "service" and ("laundry" in label or "pantry" in label or "mechanical" in label):
+        return "service"
+    return "service"
 
 
 def _llm_prompt(
     agent_input: SchematicAgentInput,
     revision_feedback: list[dict[str, Any]] | None = None,
+    generation_count: int | None = None,
 ) -> str:
     spec = agent_input.spec
+    exemplars = _retrieve_plan_exemplars(agent_input)
     warnings = [
         {
             "code": finding.code,
@@ -391,6 +741,15 @@ def _llm_prompt(
             "solar_context": "Austin, Texas: prioritize controlled south/east daylight and reduce unshaded west exposure.",
         },
         "compliance_findings": warnings,
+        "retrieved_plan_exemplars": [_exemplar_prompt_payload(exemplar) for exemplar in exemplars],
+        "candidate_selection": {
+            "return_count": 1,
+            "best_of_generation_count": generation_count or _llm_schematic_max_attempts(),
+            "selection_rule": (
+                "The backend validates each generation and returns only the highest-scoring plan. "
+                "Use the exemplars to preserve realistic room ratios, adjacency, and circulation."
+            ),
+        },
         "revision_feedback": revision_feedback or [],
         "revision_instruction": (
             "If revision_feedback is present, revise the plan JSON to resolve every failing check first, "
@@ -470,6 +829,7 @@ def _options_from_llm_payload(
 ) -> list[DesignOption]:
     target_sqft = _target_sqft(agent_input.spec)
     variant_id = secrets.token_hex(4)
+    exemplars = _retrieve_plan_exemplars(agent_input)
     options: list[DesignOption] = []
     for index, option_payload in enumerate(payload.get("options", [])):
         strategy = option_payload["strategy"]
@@ -484,6 +844,7 @@ def _options_from_llm_payload(
                 option_name=option_payload["name"],
                 solar_strategy=option_payload["solar_strategy"],
                 spec=agent_input.spec,
+                exemplars=exemplars,
             )
             for floor_index, floor_payload in enumerate(floors)
         ]
@@ -500,6 +861,7 @@ def _options_from_llm_payload(
                     option_payload["solar_strategy"],
                     *option_payload["assumptions"],
                     "Generated by OpenAI structured output and validated through the local schematic contract.",
+                    "OpenAI prompt included retrieved plan exemplars for realistic room ratios, adjacency, and circulation.",
                 ],
                 compliance_findings=agent_input.warning_findings,
             )
@@ -575,14 +937,14 @@ def _annotate_revision_loop(
     status = "accepted" if passed else "needs another revision"
     for option in options:
         option.assumptions.append(
-            f"OpenAI revision loop attempt {attempt} of {max_attempts}: deterministic quality checker {status}."
+            f"OpenAI best-of/revision generation {attempt} of {max_attempts}: deterministic quality checker {status}."
         )
 
 
 def _annotate_best_available(options: list[DesignOption], max_attempts: int) -> None:
     for option in options:
         option.assumptions.append(
-            f"Returned best available OpenAI plan after {max_attempts} revision attempts; unresolved quality warnings remain advisory."
+            f"Returned best available OpenAI plan after {max_attempts} candidate generations/revision attempts; unresolved quality warnings remain advisory."
         )
 
 
@@ -595,6 +957,7 @@ def _floor_from_llm(
     option_name: str,
     solar_strategy: str,
     spec: UserBuildSpec,
+    exemplars: list[PlanExemplar] | None = None,
 ) -> FloorPlan:
     floor_sqft = round(total_option_sqft / max(1, floor_count), 2)
     rooms = _rooms_from_llm_rooms(floor_payload["rooms"], floor_sqft)
@@ -619,6 +982,7 @@ def _floor_from_llm(
     walls = _walls_from_rooms(rooms)
     connections = _connections_from_rooms(rooms)
     openings = _openings_for_strategy(strategy)
+    best_exemplar = _best_exemplar_for_rooms(rooms, exemplars or [])
     quality_report = _quality_report(
         rooms=rooms,
         walls=walls,
@@ -630,6 +994,7 @@ def _floor_from_llm(
         sqft_delta=sqft_delta,
         spec=spec,
         strategy=strategy,
+        exemplar=best_exemplar,
     )
     svg = _svg_export(
         title=f"{option_name} - {floor_payload['level']}",
@@ -668,7 +1033,11 @@ def _floor_from_llm(
             )
         ],
         quality_report=quality_report,
-        notes=[solar_strategy, *floor_payload["floor_notes"]],
+        notes=[
+            solar_strategy,
+            *floor_payload["floor_notes"],
+            *([f"Closest retrieved exemplar: {best_exemplar.name}."] if best_exemplar else []),
+        ],
     )
 
 
@@ -1141,6 +1510,170 @@ def _layout(
     return RoomLayout(room_id=room_id, name=name, category=category, x=x, y=y, width=width, height=height)
 
 
+def _side_hall_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLayout]:
+    public_h = 33 + (candidate_index % 2)
+    unit_h = 20 if spec.units > 1 else 0
+    private_h = 100 - public_h - unit_h
+    bedrooms = max(1, min(spec.bedrooms or 3, 4))
+    bathrooms = max(1, min(round(spec.bathrooms or 2), 4))
+    rooms = [
+        _layout("entry", "Entry", "entry", 0, 0, 12, public_h * 0.55),
+        _layout("side-hall", "Side hall", "circulation", 0, public_h * 0.55, 12, 100 - public_h * 0.55 - unit_h),
+        _layout("living", "Living", "living", 12, 0, 34, public_h),
+        _layout("dining", "Dining", "living", 46, 0, 16, public_h),
+        _layout("kitchen", "Kitchen", "kitchen", 62, 0, 22, public_h),
+        _layout("laundry-pantry", "Laundry / pantry", "service", 84, 0, 16, public_h * 0.5),
+        _layout("powder-storage", "Storage / powder", "service", 84, public_h * 0.5, 16, public_h * 0.5),
+        _layout("primary-bed", "Primary bedroom", "bedroom", 58, public_h, 26, private_h * 0.55),
+        _layout("primary-bath", "Primary bath", "bath", 84, public_h, 16, private_h * 0.34),
+        _layout("primary-closet", "Primary closet / flex", "flex", 58, public_h + private_h * 0.55, 42, private_h * 0.45),
+    ]
+    secondary_slots = [
+        ("bedroom-2", "Bedroom 2", "bedroom", 12, public_h, 23, private_h * 0.5),
+        ("bedroom-3", "Bedroom 3", "bedroom", 35, public_h, 23, private_h * 0.5),
+        ("bedroom-4", "Bedroom 4", "bedroom", 12, public_h + private_h * 0.5, 23, private_h * 0.5),
+    ]
+    rooms.extend(_layout(*slot) for slot in secondary_slots[: max(0, bedrooms - 1)])
+    main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
+    if main_secondary_baths:
+        rooms.append(_layout("bath-2", "Bath 2", "bath", 35, public_h + private_h * 0.5, 23, private_h * 0.27))
+        if main_secondary_baths > 1:
+            rooms.append(
+                _layout(
+                    "bath-3",
+                    "Bath 3",
+                    "bath",
+                    35,
+                    public_h + private_h * 0.77,
+                    23,
+                    private_h * 0.23,
+                )
+            )
+        else:
+            rooms.append(
+                _layout(
+                    "secondary-storage",
+                    "Secondary storage",
+                    "service",
+                    35,
+                    public_h + private_h * 0.77,
+                    23,
+                    private_h * 0.23,
+                )
+            )
+    else:
+        rooms.append(
+            _layout(
+                "secondary-storage",
+                "Secondary storage",
+                "service",
+                35,
+                public_h + private_h * 0.5,
+                23,
+                private_h * 0.5,
+            )
+        )
+    if spec.units > 1:
+        rooms.extend(
+            [
+                _layout("adu-living", "ADU living / sleep", "unit", 0, 100 - unit_h, 56, unit_h),
+                _layout("adu-kitchen", "ADU kitchenette", "kitchen", 56, 100 - unit_h, 22, unit_h),
+                _layout("adu-bath", "ADU bath", "bath", 78, 100 - unit_h, 22, unit_h),
+            ]
+        )
+    return rooms
+
+
+def _rear_adu_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLayout]:
+    public_h = 30 + (candidate_index % 3)
+    unit_h = 24 if spec.units > 1 else 0
+    private_h = 100 - public_h - unit_h
+    bedrooms = max(1, min(spec.bedrooms or 3, 4))
+    bathrooms = max(1, min(round(spec.bathrooms or 2), 4))
+    rooms = [
+        _layout("entry", "Covered entry", "entry", 0, 0, 12, public_h),
+        _layout("living", "Living", "living", 12, 0, 31, public_h),
+        _layout("dining", "Dining", "living", 43, 0, 17, public_h),
+        _layout("kitchen", "Kitchen", "kitchen", 60, 0, 23, public_h),
+        _layout("service", "Laundry / pantry", "service", 83, 0, 17, public_h),
+        _layout("bedroom-hall", "Bedroom hall", "circulation", 36, public_h, 10, private_h),
+        _layout("linen-mechanical", "Linen / mechanical", "service", 46, public_h, 14, private_h),
+        _layout("primary-bed", "Primary bedroom", "bedroom", 60, public_h, 25, private_h * 0.58),
+        _layout("primary-bath", "Primary bath", "bath", 85, public_h, 15, private_h * 0.34),
+        _layout("primary-closet", "Primary closet / flex", "flex", 60, public_h + private_h * 0.58, 40, private_h * 0.42),
+    ]
+    secondary_slots = [
+        ("bedroom-2", "Bedroom 2", "bedroom", 0, public_h, 18, private_h * 0.5),
+        ("bedroom-3", "Bedroom 3", "bedroom", 18, public_h, 18, private_h * 0.5),
+        ("bedroom-4", "Bedroom 4", "bedroom", 0, public_h + private_h * 0.5, 18, private_h * 0.5),
+    ]
+    rooms.extend(_layout(*slot) for slot in secondary_slots[: max(0, bedrooms - 1)])
+    main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
+    if main_secondary_baths:
+        rooms.append(_layout("bath-2", "Bath 2", "bath", 18, public_h + private_h * 0.5, 18, private_h * 0.3))
+        if main_secondary_baths > 1:
+            rooms.append(_layout("bath-3", "Bath 3", "bath", 18, public_h + private_h * 0.8, 18, private_h * 0.2))
+        else:
+            rooms.append(
+                _layout("secondary-storage", "Secondary storage", "service", 18, public_h + private_h * 0.8, 18, private_h * 0.2)
+            )
+    else:
+        rooms.append(_layout("secondary-storage", "Secondary storage", "service", 18, public_h + private_h * 0.5, 18, private_h * 0.5))
+    if spec.units > 1:
+        rooms.extend(
+            [
+                _layout("adu-living", "ADU living / sleep", "unit", 0, 100 - unit_h, 57, unit_h),
+                _layout("adu-kitchen", "ADU kitchenette", "kitchen", 57, 100 - unit_h, 22, unit_h),
+                _layout("adu-bath", "ADU bath", "bath", 79, 100 - unit_h, 21, unit_h),
+            ]
+        )
+    return rooms
+
+
+def _stacked_duplex_ground_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLayout]:
+    public_h = 31 + (candidate_index % 2)
+    unit_h = 22 if spec.units > 1 else 0
+    private_h = 100 - public_h - unit_h
+    bedrooms = max(1, min(spec.bedrooms or 3, 4))
+    bathrooms = max(1, min(round(spec.bathrooms or 2), 4))
+    rooms = [
+        _layout("entry-stair", "Entry / stair core", "entry", 0, 0, 15, public_h),
+        _layout("living", "Living", "living", 15, 0, 35, public_h),
+        _layout("dining-kitchen", "Dining / kitchen", "kitchen", 50, 0, 32, public_h),
+        _layout("wet-core", "Laundry / bath core", "service", 82, 0, 18, public_h),
+        _layout("central-hall", "Central hall", "circulation", 0, public_h, 100, private_h * 0.18),
+        _layout("primary-bed", "Primary bedroom", "bedroom", 62, public_h + private_h * 0.18, 23, private_h * 0.47),
+        _layout("primary-bath", "Primary bath", "bath", 85, public_h + private_h * 0.18, 15, private_h * 0.3),
+        _layout("primary-closet", "Primary closet / flex", "flex", 62, public_h + private_h * 0.65, 38, private_h * 0.35),
+    ]
+    secondary_y = public_h + private_h * 0.18
+    secondary_h = private_h * 0.82
+    secondary_slots = [
+        ("bedroom-2", "Bedroom 2", "bedroom", 0, secondary_y, 21, secondary_h * 0.52),
+        ("bedroom-3", "Bedroom 3", "bedroom", 21, secondary_y, 21, secondary_h * 0.52),
+        ("bedroom-4", "Bedroom 4", "bedroom", 42, secondary_y, 20, secondary_h * 0.52),
+    ]
+    rooms.extend(_layout(*slot) for slot in secondary_slots[: max(0, bedrooms - 1)])
+    main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
+    if main_secondary_baths:
+        rooms.append(_layout("bath-2", "Bath 2", "bath", 0, secondary_y + secondary_h * 0.52, 21, secondary_h * 0.27))
+        if main_secondary_baths > 1:
+            rooms.append(_layout("bath-3", "Bath 3", "bath", 21, secondary_y + secondary_h * 0.52, 21, secondary_h * 0.27))
+        rooms.append(_layout("storage", "Storage", "service", 42, secondary_y + secondary_h * 0.52, 20, secondary_h * 0.27))
+    else:
+        rooms.append(_layout("storage", "Storage", "service", 0, secondary_y + secondary_h * 0.52, 62, secondary_h * 0.27))
+    rooms.append(_layout("mechanical", "Mechanical / linen", "service", 0, secondary_y + secondary_h * 0.79, 62, secondary_h * 0.21))
+    if spec.units > 1:
+        rooms.extend(
+            [
+                _layout("upper-unit-living", "Second-unit living / sleep", "unit", 0, 100 - unit_h, 56, unit_h),
+                _layout("upper-unit-kitchen", "Second-unit kitchenette", "kitchen", 56, 100 - unit_h, 22, unit_h),
+                _layout("upper-unit-bath", "Second-unit bath", "bath", 78, 100 - unit_h, 22, unit_h),
+            ]
+        )
+    return rooms
+
+
 def _private_bed_bath_layouts(
     bedrooms: int,
     bathrooms: int,
@@ -1240,6 +1773,7 @@ def _quality_report(
     sqft_delta: float,
     spec: UserBuildSpec,
     strategy: str,
+    exemplar: PlanExemplar | None = None,
 ) -> FloorPlanQualityReport:
     checks = [
         _area_reconciliation_check(total_sqft, sqft_delta),
@@ -1254,6 +1788,8 @@ def _quality_report(
         _unit_separation_check(rooms, walls, spec),
         _solar_check(openings, strategy),
     ]
+    if exemplar is not None:
+        checks.append(_exemplar_fit_check(rooms, exemplar))
     score = 100
     for check in checks:
         if check.status == FindingStatus.FAILS:
@@ -1276,7 +1812,7 @@ def _quality_report(
         checks=checks,
         review_notes=[
             "Quality checks are deterministic MVP heuristics for product review, not professional architectural validation.",
-            "Stage 6H uses this report with the OpenAI revision loop and structured geometry refiner.",
+            "Stage 6K uses this report with exemplar-guided best-of generation and the OpenAI revision loop.",
         ],
     )
 
@@ -1616,6 +2152,30 @@ def _solar_check(openings: list[FloorPlanOpening], strategy: str) -> FloorPlanQu
         "Solar orientation",
         FindingStatus.WARNING,
         f"{strategy.replace('_', ' ').title()} plan has generic openings; solar strategy needs true parcel orientation.",
+    )
+
+
+def _exemplar_fit_check(rooms: list[FloorPlanRoom], exemplar: PlanExemplar) -> FloorPlanQualityCheck:
+    score = _exemplar_fit_score(rooms, exemplar)
+    if score >= 78:
+        return _quality_check(
+            "exemplar_fit",
+            "Retrieved exemplar fit",
+            FindingStatus.PASSES,
+            f"Room-area mix is reasonably close to the retrieved {exemplar.name} precedent.",
+        )
+    if score >= 58:
+        return _quality_check(
+            "exemplar_fit",
+            "Retrieved exemplar fit",
+            FindingStatus.WARNING,
+            f"Room-area mix partly follows the retrieved {exemplar.name} precedent but needs review.",
+        )
+    return _quality_check(
+        "exemplar_fit",
+        "Retrieved exemplar fit",
+        FindingStatus.WARNING,
+        f"Room-area mix diverges from the retrieved {exemplar.name} precedent; use as advisory only.",
     )
 
 

@@ -29,6 +29,14 @@ def test_schematic_agent_generates_one_primary_plan() -> None:
     assert all(abs(option.floor_plans[0].sqft_delta) < 0.01 for option in options)
     assert all(option.floor_plans[0].quality_report.score > 0 for option in options)
     assert all(option.floor_plans[0].quality_report.checks for option in options)
+    assert any(
+        "Selected from 7 exemplar-guided local candidate generations" in assumption
+        for assumption in options[0].assumptions
+    )
+    assert any(
+        check.code == "exemplar_fit"
+        for check in options[0].floor_plans[0].quality_report.checks
+    )
     assert all(
         not any(check.status == "fails" for check in option.floor_plans[0].quality_report.checks)
         for option in options
@@ -75,6 +83,10 @@ def test_openai_schematic_agent_falls_back_when_disabled(monkeypatch) -> None:
     assert [option.strategy for option in options] == ["human_comfort"]
     assert all(option.floor_plans for option in options)
     assert all(option.floor_plans[0].quality_report.checks for option in options)
+    assert any(
+        "Selected from 7 exemplar-guided local candidate generations" in assumption
+        for assumption in options[0].assumptions
+    )
 
 
 def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) -> None:
@@ -111,6 +123,8 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
 
     assert len(prompts) == 2
     assert '"revision_feedback": []' in prompts[0]
+    assert '"retrieved_plan_exemplars"' in prompts[0]
+    assert '"best_of_generation_count": 3' in prompts[0]
     assert "program_fit" in prompts[1]
     assert [option.strategy for option in options] == ["human_comfort"]
     assert all(
@@ -118,7 +132,7 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
         for option in options
     )
     assert all(
-        any("revision loop attempt 2 of 3" in assumption for assumption in option.assumptions)
+        any("best-of/revision generation 2 of 3" in assumption for assumption in option.assumptions)
         for option in options
     )
     for option in options:
