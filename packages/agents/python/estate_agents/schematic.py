@@ -1,6 +1,9 @@
 from dataclasses import dataclass
+import json
 import math
+import os
 import secrets
+from typing import Any
 from xml.sax.saxutils import escape
 
 from realestate_schemas import (
@@ -15,10 +18,31 @@ from realestate_schemas import (
 )
 
 
+SCHEMATIC_AGENT_SYSTEM_PROMPT = """
+You are an early-stage residential schematic design agent for Austin infill projects.
+Return architectural concepts as structured JSON only. Your job is to propose plans that
+respect the requested program, preserve human livability, and explain design tradeoffs.
+
+Rules:
+- Produce exactly two options: human_comfort and space_utilization.
+- Use the requested target building square footage for both options.
+- Include reasonable room dimensions in feet and room areas that can reconcile to the target.
+- Prefer public rooms with south/east daylight in Austin; reduce west glazing.
+- Group kitchens, baths, laundry, and ADU wet rooms near wet-wall cores.
+- Keep bedrooms more private than entry/living zones.
+- Use multiple floors only when the program or lot constraints suggest it.
+- Do not claim permit readiness or code approval.
+"""
+
+
 @dataclass(frozen=True)
 class SchematicAgentInput:
     spec: UserBuildSpec
     warning_findings: list[ComplianceFinding]
+    address: str | None = None
+    neighborhood: str | None = None
+    lot_sqft: float | None = None
+    zoning: str | None = None
 
 
 @dataclass(frozen=True)
@@ -252,6 +276,336 @@ class SchematicDesignAgent:
             _opening("kitchen-window", 59, 0, 12, "horizontal", "window"),
             _opening("primary-window", 77, 100, 16, "horizontal", "window"),
         ]
+
+
+class OpenAISchematicDesignAgent:
+    """OpenAI-backed schematic agent with local validation and fallback."""
+
+    def __init__(
+        self,
+        fallback_agent: SchematicDesignAgent | None = None,
+        model: str | None = None,
+    ) -> None:
+        self.fallback_agent = fallback_agent or SchematicDesignAgent()
+        self.model = model or os.getenv("OPENAI_SCHEMATIC_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5.4"
+
+    def generate(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
+        if not _llm_schematic_enabled() or not os.getenv("OPENAI_API_KEY"):
+            return self.fallback_agent.generate(agent_input)
+
+        try:
+            return self._generate_with_openai(agent_input)
+        except Exception:
+            return self.fallback_agent.generate(agent_input)
+
+    def _generate_with_openai(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
+        try:
+            from openai import OpenAI
+        except ImportError:
+            return self.fallback_agent.generate(agent_input)
+
+        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        response = client.responses.create(
+            model=self.model,
+            input=[
+                {"role": "system", "content": SCHEMATIC_AGENT_SYSTEM_PROMPT},
+                {"role": "user", "content": _llm_prompt(agent_input)},
+            ],
+            text={
+                "format": {
+                    "type": "json_schema",
+                    "name": "schematic_design_response",
+                    "schema": _llm_response_schema(),
+                    "strict": True,
+                }
+            },
+        )
+        return _options_from_llm_payload(_extract_response_json(response), agent_input)
+
+
+def _llm_schematic_enabled() -> bool:
+    return os.getenv("LLM_SCHEMATIC_ENABLED", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _llm_prompt(agent_input: SchematicAgentInput) -> str:
+    spec = agent_input.spec
+    warnings = [
+        {
+            "code": finding.code,
+            "title": finding.title,
+            "status": finding.status.value,
+            "summary": finding.summary,
+        }
+        for finding in agent_input.warning_findings
+    ]
+    payload = {
+        "project": {
+            "property_type": spec.property_type.value,
+            "target_building_sqft": spec.target_building_sqft,
+            "target_lot_sqft": spec.target_lot_sqft,
+            "bedrooms": spec.bedrooms,
+            "bathrooms": spec.bathrooms,
+            "units": spec.units,
+            "style_preferences": spec.style_preferences,
+            "risk_tolerance": spec.risk_tolerance.value,
+        },
+        "property_context": {
+            "address": agent_input.address,
+            "neighborhood": agent_input.neighborhood,
+            "lot_sqft": agent_input.lot_sqft,
+            "zoning": agent_input.zoning,
+            "orientation_assumption": "North is up until official parcel/street frontage geometry is joined.",
+            "solar_context": "Austin, Texas: prioritize controlled south/east daylight and reduce unshaded west exposure.",
+        },
+        "compliance_findings": warnings,
+    }
+    return json.dumps(payload, indent=2)
+
+
+def _llm_response_schema() -> dict[str, Any]:
+    room = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["name", "category", "width_ft", "depth_ft", "daylight_orientation", "adjacency_notes"],
+        "properties": {
+            "name": {"type": "string"},
+            "category": {
+                "type": "string",
+                "enum": ["entry", "living", "kitchen", "service", "bedroom", "bath", "unit", "circulation", "flex"],
+            },
+            "width_ft": {"type": "number", "minimum": 3},
+            "depth_ft": {"type": "number", "minimum": 3},
+            "daylight_orientation": {"type": "string"},
+            "adjacency_notes": {"type": "string"},
+        },
+    }
+    floor = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["level", "rooms", "floor_notes"],
+        "properties": {
+            "level": {"type": "string"},
+            "rooms": {"type": "array", "minItems": 3, "items": room},
+            "floor_notes": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+    option = {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["name", "strategy", "concept", "solar_strategy", "floors", "assumptions"],
+        "properties": {
+            "name": {"type": "string"},
+            "strategy": {"type": "string", "enum": ["human_comfort", "space_utilization"]},
+            "concept": {"type": "string"},
+            "solar_strategy": {"type": "string"},
+            "floors": {"type": "array", "minItems": 1, "maxItems": 3, "items": floor},
+            "assumptions": {"type": "array", "items": {"type": "string"}},
+        },
+    }
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": ["options"],
+        "properties": {
+            "options": {"type": "array", "minItems": 2, "maxItems": 2, "items": option}
+        },
+    }
+
+
+def _extract_response_json(response: Any) -> dict[str, Any]:
+    text = getattr(response, "output_text", None)
+    if text:
+        return json.loads(text)
+
+    output = getattr(response, "output", [])
+    for item in output:
+        for content in getattr(item, "content", []):
+            content_text = getattr(content, "text", None)
+            if content_text:
+                return json.loads(content_text)
+    raise ValueError("OpenAI response did not include JSON text")
+
+
+def _options_from_llm_payload(
+    payload: dict[str, Any],
+    agent_input: SchematicAgentInput,
+) -> list[DesignOption]:
+    target_sqft = _target_sqft(agent_input.spec)
+    variant_id = secrets.token_hex(4)
+    options: list[DesignOption] = []
+    for index, option_payload in enumerate(payload.get("options", [])):
+        strategy = option_payload["strategy"]
+        floors = option_payload["floors"]
+        floor_plans = [
+            _floor_from_llm(
+                floor_payload=floor_payload,
+                strategy=strategy,
+                plan_id=f"floor-plan-{strategy}-{variant_id}-{floor_index + 1}",
+                total_option_sqft=target_sqft,
+                floor_count=len(floors),
+                option_name=option_payload["name"],
+                solar_strategy=option_payload["solar_strategy"],
+            )
+            for floor_index, floor_payload in enumerate(floors)
+        ]
+        options.append(
+            DesignOption(
+                option_id=f"schematic-{strategy}-{variant_id}-{index + 1}",
+                name=option_payload["name"],
+                strategy=strategy,
+                target_building_sqft=target_sqft,
+                units=agent_input.spec.units,
+                floor_plans=floor_plans,
+                assumptions=[
+                    option_payload["concept"],
+                    option_payload["solar_strategy"],
+                    *option_payload["assumptions"],
+                    "Generated by OpenAI structured output and validated through the local schematic contract.",
+                ],
+                compliance_findings=agent_input.warning_findings,
+            )
+        )
+
+    if {option.strategy for option in options} != {"human_comfort", "space_utilization"}:
+        raise ValueError("LLM did not return required schematic strategies")
+    return options
+
+
+def _floor_from_llm(
+    floor_payload: dict[str, Any],
+    strategy: str,
+    plan_id: str,
+    total_option_sqft: float,
+    floor_count: int,
+    option_name: str,
+    solar_strategy: str,
+) -> FloorPlan:
+    floor_sqft = round(total_option_sqft / max(1, floor_count), 2)
+    rooms = _rooms_from_llm_rooms(floor_payload["rooms"], floor_sqft)
+    footprint_width_ft = max(sum(room.width_ft for room in rooms[:3]), math.sqrt(floor_sqft * 1.5))
+    footprint_depth_ft = floor_sqft / footprint_width_ft
+    rooms = _assign_llm_room_positions(rooms)
+    sqft_delta = round(floor_sqft - sum(room.estimated_sqft for room in rooms), 2)
+    if rooms and abs(sqft_delta) >= 0.01:
+        rooms[-1] = rooms[-1].model_copy(
+            update={"estimated_sqft": max(35, round(rooms[-1].estimated_sqft + sqft_delta, 2))}
+        )
+        sqft_delta = round(floor_sqft - sum(room.estimated_sqft for room in rooms), 2)
+    scale_assumption = (
+        f"OpenAI concept scale: 1 SVG plan unit = {footprint_width_ft / 100:.2f} ft horizontally "
+        f"and {footprint_depth_ft / 100:.2f} ft vertically; room dimensions are model-proposed and rounded."
+    )
+    walls = _walls()
+    openings = _openings_for_strategy(strategy)
+    svg = _svg_export(
+        title=f"{option_name} - {floor_payload['level']}",
+        total_sqft=floor_sqft,
+        width_ft=footprint_width_ft,
+        depth_ft=footprint_depth_ft,
+        rooms=rooms,
+        walls=walls,
+        openings=openings,
+        scale_assumption=scale_assumption,
+    )
+    return FloorPlan(
+        plan_id=plan_id,
+        name=floor_payload["level"],
+        level=floor_payload["level"],
+        total_sqft=floor_sqft,
+        footprint_width_ft=round(footprint_width_ft, 1),
+        footprint_depth_ft=round(footprint_depth_ft, 1),
+        scale_assumption=scale_assumption,
+        sqft_delta=sqft_delta,
+        rooms=rooms,
+        walls=walls,
+        openings=openings,
+        visual_exports=[
+            GeneratedVisualExport(
+                export_id=f"{plan_id}-svg",
+                label="OpenAI architectural concept SVG",
+                format="svg",
+                content=svg,
+                notes=[
+                    "Generated from OpenAI structured output and local SVG rendering.",
+                    "Conceptual only; professional design review required.",
+                ],
+            )
+        ],
+        notes=[solar_strategy, *floor_payload["floor_notes"]],
+    )
+
+
+def _rooms_from_llm_rooms(
+    rooms_payload: list[dict[str, Any]],
+    floor_sqft: float,
+) -> list[FloorPlanRoom]:
+    rooms = [
+        FloorPlanRoom(
+            room_id=f"llm-room-{index + 1}",
+            name=room["name"],
+            category=room["category"],
+            estimated_sqft=round(room["width_ft"] * room["depth_ft"], 2),
+            width_ft=round(room["width_ft"] * 2) / 2,
+            depth_ft=round(room["depth_ft"] * 2) / 2,
+            x=0,
+            y=0,
+            width=10,
+            height=10,
+        )
+        for index, room in enumerate(rooms_payload)
+    ]
+    total_area = sum(room.estimated_sqft for room in rooms)
+    if total_area <= 0:
+        raise ValueError("LLM rooms did not include positive area")
+    scale_factor = floor_sqft / total_area
+    return [
+        room.model_copy(
+            update={
+                "estimated_sqft": round(room.estimated_sqft * scale_factor, 2),
+                "width_ft": round(room.width_ft * math.sqrt(scale_factor) * 2) / 2,
+                "depth_ft": round(room.depth_ft * math.sqrt(scale_factor) * 2) / 2,
+            }
+        )
+        for room in rooms
+    ]
+
+
+def _assign_llm_room_positions(rooms: list[FloorPlanRoom]) -> list[FloorPlanRoom]:
+    columns = 3
+    rows = math.ceil(len(rooms) / columns)
+    cell_width = 100 / columns
+    cell_height = 100 / max(1, rows)
+    positioned = []
+    for index, room in enumerate(rooms):
+        column = index % columns
+        row = index // columns
+        positioned.append(
+            room.model_copy(
+                update={
+                    "x": round(column * cell_width, 2),
+                    "y": round(row * cell_height, 2),
+                    "width": round(cell_width, 2),
+                    "height": round(cell_height, 2),
+                }
+            )
+        )
+    return positioned
+
+
+def _openings_for_strategy(strategy: str) -> list[FloorPlanOpening]:
+    if strategy == "human_comfort":
+        return [
+            _opening("front-door", 5, 0, 8, "horizontal", "door"),
+            _opening("south-living-window", 20, 100, 18, "horizontal", "window"),
+            _opening("east-bedroom-window", 100, 52, 14, "vertical", "window"),
+            _opening("kitchen-window", 68, 0, 12, "horizontal", "window"),
+        ]
+    return [
+        _opening("front-door", 4, 0, 8, "horizontal", "door"),
+        _opening("side-door", 0, 84, 10, "vertical", "door"),
+        _opening("great-room-window", 22, 0, 18, "horizontal", "window"),
+        _opening("south-window-band", 50, 100, 18, "horizontal", "window"),
+    ]
 
 
 def _target_sqft(spec: UserBuildSpec) -> float:

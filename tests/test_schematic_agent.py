@@ -1,4 +1,4 @@
-from estate_agents import SchematicAgentInput, SchematicDesignAgent
+from estate_agents import OpenAISchematicDesignAgent, SchematicAgentInput, SchematicDesignAgent
 from realestate_schemas import PropertyType, UserBuildSpec
 
 
@@ -30,3 +30,29 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
         SchematicAgentInput(spec=spec, warning_findings=[])
     )
     assert options[0].option_id != second_run[0].option_id
+
+
+def test_openai_schematic_agent_falls_back_when_disabled(monkeypatch) -> None:
+    monkeypatch.delenv("LLM_SCHEMATIC_ENABLED", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    spec = UserBuildSpec(
+        project_name="Fallback concept",
+        property_type=PropertyType.ADU,
+        total_budget_usd=850_000,
+        target_building_sqft=1_800,
+        units=1,
+    )
+
+    options = OpenAISchematicDesignAgent().generate(
+        SchematicAgentInput(
+            spec=spec,
+            warning_findings=[],
+            address="4307 Avenue G, Austin, TX 78751",
+            neighborhood="Hyde Park / Central Austin",
+            lot_sqft=6_600,
+            zoning="SF-3",
+        )
+    )
+
+    assert [option.strategy for option in options] == ["human_comfort", "space_utilization"]
+    assert all(option.floor_plans for option in options)

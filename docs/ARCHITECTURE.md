@@ -146,7 +146,7 @@ ComplianceEvaluationResponse
 
 The LLM does not own final compliance status. Stage 5 findings are deterministic and explicitly advisory until official zoning, parcel, tree, floodplain, WUI, survey, and permit-review data are joined.
 
-## Stage 6D Generative Schematic Agent
+## Stage 6E LLM Schematic Agent
 
 ```text
 Compliance feasibility + selected lot + validated UserBuildSpec
@@ -158,8 +158,10 @@ POST /design/schematics
 Design service
   |
   |-- Reuses deterministic compliance response
-  |-- Delegates schematic generation to SchematicDesignAgent
-  |-- Generates human-comfort and space-utilization options
+  |-- Delegates schematic generation to OpenAISchematicDesignAgent
+  |-- Uses OpenAI structured outputs when LLM_SCHEMATIC_ENABLED=true
+  |-- Falls back to the local SchematicDesignAgent otherwise
+  |-- Generates human-comfort and space-utilization options from spec + property context
   |-- Reconciles room areas to the requested building square footage
   |-- Adds one dimensioned architectural concept plan to each option
   |-- Uses normalized rooms, walls, openings, scale assumptions, and SVG exports
@@ -169,4 +171,4 @@ Design service
 DesignGenerationResponse
 ```
 
-Stage 6D is generative and conceptual. It creates option cards, dimensioned architectural-style plan views, and downloadable SVG exports for review and later conversational tuning, but it does not create permit drawings, measured CAD/BIM files, AutoHDR imagery, or walkthrough assets.
+Stage 6E is LLM-assisted, generative, and conceptual. It creates option cards, dimensioned architectural-style plan views, and downloadable SVG exports for review and later conversational tuning, but it does not create permit drawings, measured CAD/BIM files, AutoHDR imagery, or walkthrough assets.

@@ -12,9 +12,9 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6D - Generative Schematic Agent Plans**.
+Current implementation target: **Stage 6E - LLM Schematic Agent**.
 
-Stage 6D provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, a generative schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, and tests. Future stages should be implemented only after review.
+Stage 6E provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 
@@ -39,6 +39,16 @@ pnpm --filter web typecheck
 pnpm --filter web lint
 pnpm --filter web build
 ```
+
+Optional LLM schematic generation:
+
+```bash
+OPENAI_API_KEY=...
+OPENAI_SCHEMATIC_MODEL=gpt-5.4
+LLM_SCHEMATIC_ENABLED=true
+```
+
+When `LLM_SCHEMATIC_ENABLED` is unset or false, the API uses the local schematic generator.
 
 Run the FastAPI server from the monorepo root:
 
