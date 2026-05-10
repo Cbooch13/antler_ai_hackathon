@@ -80,6 +80,89 @@ class PlanExemplar:
     planning_notes: tuple[str, ...]
 
 
+@dataclass(frozen=True)
+class ResearchReference:
+    reference_id: str
+    name: str
+    reference_type: str
+    planning_lessons: tuple[str, ...]
+    mvp_usage: str
+
+
+RESEARCH_REFERENCES: tuple[ResearchReference, ...] = (
+    ResearchReference(
+        reference_id="resplan",
+        name="ResPlan",
+        reference_type="vector_graph_dataset",
+        planning_lessons=(
+            "Represent plans as room graphs plus cleaned geometry, not as images alone.",
+            "Use connectivity, adjacency, and room-boundary structure as first-order constraints.",
+        ),
+        mvp_usage="Reference for future graph-native exemplar retrieval after license review.",
+    ),
+    ResearchReference(
+        reference_id="rplan",
+        name="RPLAN",
+        reference_type="annotated_residential_dataset",
+        planning_lessons=(
+            "Useful for broad residential room-distribution priors.",
+            "Raster annotations still need conversion before deterministic geometry checks can trust them.",
+        ),
+        mvp_usage="Reference dataset for distribution checks and future raster-to-structure experiments.",
+    ),
+    ResearchReference(
+        reference_id="tell2design",
+        name="Tell2Design",
+        reference_type="language_to_layout_dataset",
+        planning_lessons=(
+            "Pair natural-language briefs with room programs and layout intent.",
+            "Evaluate whether generated plans actually follow user instructions.",
+        ),
+        mvp_usage="Reference for prompt/evaluation style, not shipped examples.",
+    ),
+    ResearchReference(
+        reference_id="graph2plan",
+        name="Graph2Plan",
+        reference_type="graph_conditioned_generation",
+        planning_lessons=(
+            "Separate room graph planning from geometric rendering.",
+            "Use boundary, room type, and adjacency constraints before producing final plan geometry.",
+        ),
+        mvp_usage="Reference for the planner/refiner split and graph-conditioned validation.",
+    ),
+    ResearchReference(
+        reference_id="housellm",
+        name="HouseLLM",
+        reference_type="two_phase_text_to_floorplan",
+        planning_lessons=(
+            "Use an LLM for structured planning and a separate geometry stage for exact placement.",
+            "Revise against explicit constraint violations rather than relying on one-shot generation.",
+        ),
+        mvp_usage="Reference architecture only; no public drop-in model is assumed.",
+    ),
+    ResearchReference(
+        reference_id="dstruct2design",
+        name="DStruct2Design",
+        reference_type="structured_floorplan_benchmark",
+        planning_lessons=(
+            "Serialize room lists, numerical constraints, and graph edges in JSON-like structures.",
+            "Measure instruction adherence separately from geometric correctness.",
+        ),
+        mvp_usage="Reference for internal schema and evaluation style.",
+    ),
+    ResearchReference(
+        reference_id="zuru",
+        name="ZURU/AWS floor-plan generation case study",
+        reference_type="production_case_study",
+        planning_lessons=(
+            "Evaluate instruction adherence and mathematical/geometric correctness separately.",
+            "Use best-of or revision loops with deterministic validation to filter poor candidates.",
+        ),
+        mvp_usage="Reference for evaluation methodology, not a public model dependency.",
+    ),
+)
+
+
 PLAN_EXEMPLARS: tuple[PlanExemplar, ...] = (
     PlanExemplar(
         exemplar_id="central-hall-bungalow",
@@ -621,6 +704,16 @@ def _exemplar_prompt_payload(exemplar: PlanExemplar) -> dict[str, Any]:
     }
 
 
+def _research_reference_prompt_payload(reference: ResearchReference) -> dict[str, Any]:
+    return {
+        "id": reference.reference_id,
+        "name": reference.name,
+        "type": reference.reference_type,
+        "planning_lessons": list(reference.planning_lessons),
+        "mvp_usage": reference.mvp_usage,
+    }
+
+
 def _candidate_aspect_ratio(exemplar: PlanExemplar, candidate_index: int) -> float:
     offsets = (-0.16, -0.10, -0.05, 0.0, 0.05, 0.10, 0.16)
     return max(1.22, min(2.15, exemplar.aspect_ratio + offsets[candidate_index % len(offsets)]))
@@ -741,7 +834,15 @@ def _llm_prompt(
             "solar_context": "Austin, Texas: prioritize controlled south/east daylight and reduce unshaded west exposure.",
         },
         "compliance_findings": warnings,
+        "research_references": [
+            _research_reference_prompt_payload(reference)
+            for reference in RESEARCH_REFERENCES
+        ],
         "retrieved_plan_exemplars": [_exemplar_prompt_payload(exemplar) for exemplar in exemplars],
+        "reasoning_policy": (
+            "Use these references as structured planning guidance. Do not output hidden chain-of-thought; "
+            "return concise design assumptions and constraint-aware room data only."
+        ),
         "candidate_selection": {
             "return_count": 1,
             "best_of_generation_count": generation_count or _llm_schematic_max_attempts(),
@@ -889,6 +990,9 @@ def _options_pass_quality(options: list[DesignOption]) -> bool:
         "program_fit",
         "room_dimensions",
         "path_connectivity",
+        "bedroom_privacy",
+        "circulation_efficiency",
+        "room_area_balance",
     }
     return bool(reports) and all(
         report.score >= 85
@@ -1082,34 +1186,68 @@ def _refine_llm_room_geometry(
     footprint_width_ft: float,
     footprint_depth_ft: float,
 ) -> list[FloorPlanRoom]:
-    unit_rooms = [room for room in rooms if _is_unit_room(room)]
+    source_rooms = list(rooms)
+    unit_rooms = [room for room in source_rooms if _is_unit_room(room)]
     wet_rooms = [
         room
-        for room in rooms
+        for room in source_rooms
         if room not in unit_rooms and room.category in {"bath", "service"}
     ]
+    if len(wet_rooms) == 1:
+        support_room = FloorPlanRoom(
+            room_id="generated-wet-support",
+            name="Wet core support",
+            category="service",
+            estimated_sqft=max(60, wet_rooms[0].estimated_sqft),
+            width_ft=8,
+            depth_ft=8,
+            x=0,
+            y=0,
+            width=10,
+            height=10,
+        )
+        source_rooms.append(support_room)
+        wet_rooms.append(support_room)
     circulation_rooms = [
         room
-        for room in rooms
+        for room in source_rooms
         if room not in unit_rooms and room not in wet_rooms and room.category == "circulation"
     ]
     public_rooms = [
         room
-        for room in rooms
+        for room in source_rooms
         if room not in unit_rooms and room not in wet_rooms and room not in circulation_rooms and room.category in {"entry", "living", "kitchen"}
     ]
     private_rooms = [
         room
-        for room in rooms
+        for room in source_rooms
         if room not in unit_rooms and room not in wet_rooms and room not in circulation_rooms and room not in public_rooms
     ]
+    private_support_index = 1
+    while 0 < len(private_rooms) < 4:
+        support_room = FloorPlanRoom(
+            room_id=f"generated-private-support-{private_support_index}",
+            name="Private storage / flex",
+            category="flex" if private_support_index == 1 else "service",
+            estimated_sqft=70,
+            width_ft=8,
+            depth_ft=8,
+            x=0,
+            y=0,
+            width=10,
+            height=10,
+        )
+        source_rooms.append(support_room)
+        private_rooms.append(support_room)
+        private_support_index += 1
 
     unit_h = 24 if unit_rooms else 0
     public_h = 32 if public_rooms else 0
     hall_h = 12 if circulation_rooms else 0
     private_h = max(0, 100 - unit_h - public_h - hall_h)
-    main_w = 78 if wet_rooms else 100
+    main_w = 88 if wet_rooms and total_sqft <= 1_600 else 78 if wet_rooms else 100
     refined: list[FloorPlanRoom] = []
+    uses_vertical_hall = bool(circulation_rooms and private_rooms)
 
     if public_rooms:
         refined.extend(
@@ -1124,7 +1262,52 @@ def _refine_llm_room_geometry(
                 footprint_depth_ft=footprint_depth_ft,
             )
         )
-    if circulation_rooms:
+    if uses_vertical_hall:
+        private_zone_y = public_h
+        private_zone_h = max(0, 100 - unit_h - public_h)
+        hall_width = 8
+        hall_x = max(24, min(main_w - hall_width - 24, main_w * 0.48))
+        refined.extend(
+            _position_column(
+                circulation_rooms,
+                x=hall_x,
+                y=private_zone_y,
+                width=hall_width,
+                height=private_zone_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+        left_rooms = private_rooms[::2]
+        right_rooms = private_rooms[1::2]
+        if left_rooms:
+            refined.extend(
+                _position_column(
+                    left_rooms,
+                    x=0,
+                    y=private_zone_y,
+                    width=hall_x,
+                    height=private_zone_h,
+                    total_sqft=total_sqft,
+                    footprint_width_ft=footprint_width_ft,
+                    footprint_depth_ft=footprint_depth_ft,
+                )
+            )
+        if right_rooms:
+            refined.extend(
+                _position_column(
+                    right_rooms,
+                    x=hall_x + hall_width,
+                    y=private_zone_y,
+                    width=main_w - hall_x - hall_width,
+                    height=private_zone_h,
+                    total_sqft=total_sqft,
+                    footprint_width_ft=footprint_width_ft,
+                    footprint_depth_ft=footprint_depth_ft,
+                )
+            )
+    elif circulation_rooms:
         refined.extend(
             _position_row(
                 circulation_rooms,
@@ -1137,7 +1320,7 @@ def _refine_llm_room_geometry(
                 footprint_depth_ft=footprint_depth_ft,
             )
         )
-    if private_rooms:
+    if private_rooms and not uses_vertical_hall:
         refined.extend(
             _position_grid(
                 private_rooms,
@@ -1178,7 +1361,7 @@ def _refine_llm_room_geometry(
         )
 
     room_by_id = {room.room_id: room for room in refined}
-    return [room_by_id.get(room.room_id, room) for room in rooms]
+    return [room_by_id.get(room.room_id, room) for room in source_rooms]
 
 
 def _is_unit_room(room: FloorPlanRoom) -> bool:
@@ -1368,6 +1551,9 @@ def _shared_boundary_connection(
     second: FloorPlanRoom,
     index: int,
 ) -> FloorPlanConnection | None:
+    if not _should_connect_rooms(first, second):
+        return None
+
     tolerance = 0.2
     first_right = first.x + first.width
     second_right = second.x + second.width
@@ -1406,6 +1592,25 @@ def _shared_boundary_connection(
                 orientation="horizontal",
             )
     return None
+
+
+def _should_connect_rooms(first: FloorPlanRoom, second: FloorPlanRoom) -> bool:
+    categories = {first.category, second.category}
+    if first.category == "bedroom" and second.category == "bedroom":
+        return False
+    if "circulation" in categories or "entry" in categories:
+        return True
+    if _is_unit_room(first) or _is_unit_room(second):
+        return bool(categories & {"unit", "kitchen", "bath", "entry", "circulation"})
+    if categories <= {"living", "kitchen", "service"}:
+        return True
+    if "bath" in categories and categories & {"bedroom", "circulation", "entry"}:
+        return True
+    if "flex" in categories and categories & {"bedroom", "bath", "circulation", "entry"}:
+        return True
+    if "service" in categories and categories & {"kitchen", "living", "circulation", "entry"}:
+        return True
+    return categories <= {"living", "kitchen", "entry", "circulation"}
 
 
 def _connection(
@@ -1481,9 +1686,29 @@ def _fallback_connection(
     connected_center = _room_center(connected_room)
     if abs(room_center[0] - connected_center[0]) > abs(room_center[1] - connected_center[1]):
         x = room.x if room_center[0] > connected_center[0] else room.x + room.width
-        return _connection(index, room, connected_room, x, room_center[1], 3.2, "vertical")
+        return _assumed_connection(index, room, connected_room, x, room_center[1], "vertical")
     y = room.y if room_center[1] > connected_center[1] else room.y + room.height
-    return _connection(index, room, connected_room, room_center[0], y, 3.2, "horizontal")
+    return _assumed_connection(index, room, connected_room, room_center[0], y, "horizontal")
+
+
+def _assumed_connection(
+    index: int,
+    first: FloorPlanRoom,
+    second: FloorPlanRoom,
+    x: float,
+    y: float,
+    orientation: str,
+) -> FloorPlanConnection:
+    return FloorPlanConnection(
+        connection_id=f"assumed-connection-{index}",
+        from_room_id=first.room_id,
+        to_room_id=second.room_id,
+        connection_type="assumed_path",
+        x=round(max(0, min(100, x)), 2),
+        y=round(max(0, min(100, y)), 2),
+        width=3.2,
+        orientation=orientation,
+    )
 
 
 def _room_center(room: FloorPlanRoom) -> tuple[float, float]:
@@ -1586,7 +1811,7 @@ def _side_hall_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLa
 
 def _rear_adu_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLayout]:
     public_h = 30 + (candidate_index % 3)
-    unit_h = 24 if spec.units > 1 else 0
+    unit_h = 22 if spec.units > 1 else 0
     private_h = 100 - public_h - unit_h
     bedrooms = max(1, min(spec.bedrooms or 3, 4))
     bathrooms = max(1, min(round(spec.bathrooms or 2), 4))
@@ -1596,35 +1821,34 @@ def _rear_adu_layouts(spec: UserBuildSpec, candidate_index: int) -> list[RoomLay
         _layout("dining", "Dining", "living", 43, 0, 17, public_h),
         _layout("kitchen", "Kitchen", "kitchen", 60, 0, 23, public_h),
         _layout("service", "Laundry / pantry", "service", 83, 0, 17, public_h),
-        _layout("bedroom-hall", "Bedroom hall", "circulation", 36, public_h, 10, private_h),
-        _layout("linen-mechanical", "Linen / mechanical", "service", 46, public_h, 14, private_h),
-        _layout("primary-bed", "Primary bedroom", "bedroom", 60, public_h, 25, private_h * 0.58),
-        _layout("primary-bath", "Primary bath", "bath", 85, public_h, 15, private_h * 0.34),
-        _layout("primary-closet", "Primary closet / flex", "flex", 60, public_h + private_h * 0.58, 40, private_h * 0.42),
+        _layout("bedroom-hall", "Bedroom hall", "circulation", 44, public_h, 10, private_h),
+        _layout("primary-bed", "Primary bedroom", "bedroom", 54, public_h, 28, private_h * 0.52),
+        _layout("primary-bath", "Primary bath", "bath", 82, public_h, 18, private_h * 0.26),
+        _layout("primary-closet", "Primary closet / flex", "flex", 82, public_h + private_h * 0.26, 18, private_h * 0.26),
     ]
     secondary_slots = [
-        ("bedroom-2", "Bedroom 2", "bedroom", 0, public_h, 18, private_h * 0.5),
-        ("bedroom-3", "Bedroom 3", "bedroom", 18, public_h, 18, private_h * 0.5),
-        ("bedroom-4", "Bedroom 4", "bedroom", 0, public_h + private_h * 0.5, 18, private_h * 0.5),
+        ("bedroom-2", "Bedroom 2", "bedroom", 0, public_h, 44, private_h * 0.5),
+        ("bedroom-3", "Bedroom 3", "bedroom", 0, public_h + private_h * 0.5, 44, private_h * 0.5),
+        ("bedroom-4", "Bedroom 4", "bedroom", 54, public_h + private_h * 0.52, 28, private_h * 0.48),
     ]
     rooms.extend(_layout(*slot) for slot in secondary_slots[: max(0, bedrooms - 1)])
     main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
     if main_secondary_baths:
-        rooms.append(_layout("bath-2", "Bath 2", "bath", 18, public_h + private_h * 0.5, 18, private_h * 0.3))
+        rooms.append(_layout("bath-2", "Bath 2", "bath", 82, public_h + private_h * 0.52, 18, private_h * 0.24))
         if main_secondary_baths > 1:
-            rooms.append(_layout("bath-3", "Bath 3", "bath", 18, public_h + private_h * 0.8, 18, private_h * 0.2))
+            rooms.append(_layout("bath-3", "Bath 3", "bath", 82, public_h + private_h * 0.76, 18, private_h * 0.24))
         else:
             rooms.append(
-                _layout("secondary-storage", "Secondary storage", "service", 18, public_h + private_h * 0.8, 18, private_h * 0.2)
+                _layout("linen-mechanical", "Linen / mechanical", "service", 82, public_h + private_h * 0.76, 18, private_h * 0.24)
             )
     else:
-        rooms.append(_layout("secondary-storage", "Secondary storage", "service", 18, public_h + private_h * 0.5, 18, private_h * 0.5))
+        rooms.append(_layout("linen-mechanical", "Linen / mechanical", "service", 82, public_h + private_h * 0.52, 18, private_h * 0.48))
     if spec.units > 1:
         rooms.extend(
             [
-                _layout("adu-living", "ADU living / sleep", "unit", 0, 100 - unit_h, 57, unit_h),
-                _layout("adu-kitchen", "ADU kitchenette", "kitchen", 57, 100 - unit_h, 22, unit_h),
-                _layout("adu-bath", "ADU bath", "bath", 79, 100 - unit_h, 21, unit_h),
+                _layout("adu-living", "ADU living / sleep", "unit", 0, 100 - unit_h, 60, unit_h),
+                _layout("adu-kitchen", "ADU kitchenette", "kitchen", 60, 100 - unit_h, 22, unit_h),
+                _layout("adu-bath", "ADU bath", "bath", 82, 100 - unit_h, 18, unit_h),
             ]
         )
     return rooms
@@ -1784,6 +2008,10 @@ def _quality_report(
         _room_dimension_check(rooms),
         _circulation_check(rooms),
         _path_connectivity_check(rooms, connections),
+        _bedroom_privacy_check(rooms, connections),
+        _circulation_efficiency_check(rooms, total_sqft),
+        _room_area_balance_check(rooms, total_sqft),
+        _wet_core_grouping_check(rooms),
         _opening_check(openings),
         _unit_separation_check(rooms, walls, spec),
         _solar_check(openings, strategy),
@@ -1812,7 +2040,7 @@ def _quality_report(
         checks=checks,
         review_notes=[
             "Quality checks are deterministic MVP heuristics for product review, not professional architectural validation.",
-            "Stage 6K uses this report with exemplar-guided best-of generation and the OpenAI revision loop.",
+            "Stage 6L uses this report with research-guided references, stricter realism checks, and the OpenAI revision loop.",
         ],
     )
 
@@ -2042,6 +2270,18 @@ def _path_connectivity_check(
             FindingStatus.FAILS,
             "No room connection graph is modeled.",
         )
+    assumed_paths = [
+        connection.connection_id
+        for connection in connections
+        if connection.connection_type == "assumed_path"
+    ]
+    if assumed_paths:
+        return _quality_check(
+            "path_connectivity",
+            "Path connectivity",
+            FindingStatus.FAILS,
+            "Some rooms required synthetic path repair instead of a real shared-wall door/opening.",
+        )
     reachable = _reachable_room_ids(hub.room_id, connections)
     missing = [room.name for room in rooms if room.room_id not in reachable]
     if missing:
@@ -2068,6 +2308,179 @@ def _path_connectivity_check(
         "Path connectivity",
         FindingStatus.PASSES,
         "All rooms are reachable through the modeled connection graph.",
+    )
+
+
+def _bedroom_privacy_check(
+    rooms: list[FloorPlanRoom],
+    connections: list[FloorPlanConnection],
+) -> FloorPlanQualityCheck:
+    room_by_id = {room.room_id: room for room in rooms}
+    access_by_room: dict[str, list[FloorPlanRoom]] = {room.room_id: [] for room in rooms}
+    for connection in connections:
+        if connection.connection_type == "assumed_path":
+            continue
+        first = room_by_id.get(connection.from_room_id)
+        second = room_by_id.get(connection.to_room_id)
+        if first is None or second is None:
+            continue
+        access_by_room[first.room_id].append(second)
+        access_by_room[second.room_id].append(first)
+
+    bedroom_without_hall = []
+    bedroom_to_bedroom = []
+    for room in rooms:
+        if room.category != "bedroom":
+            continue
+        adjacent = access_by_room.get(room.room_id, [])
+        if not any(candidate.category in {"circulation", "entry"} for candidate in adjacent):
+            bedroom_without_hall.append(room.name)
+        if any(candidate.category == "bedroom" for candidate in adjacent):
+            bedroom_to_bedroom.append(room.name)
+
+    if bedroom_without_hall:
+        return _quality_check(
+            "bedroom_privacy",
+            "Bedroom privacy",
+            FindingStatus.FAILS,
+            f"Bedrooms lack direct hall/entry access: {', '.join(bedroom_without_hall[:4])}.",
+        )
+    if bedroom_to_bedroom:
+        return _quality_check(
+            "bedroom_privacy",
+            "Bedroom privacy",
+            FindingStatus.WARNING,
+            f"Bedroom-to-bedroom doors should be avoided or professionally reviewed: {', '.join(bedroom_to_bedroom[:4])}.",
+        )
+    return _quality_check(
+        "bedroom_privacy",
+        "Bedroom privacy",
+        FindingStatus.PASSES,
+        "Bedrooms connect to hall/entry circulation rather than relying on another bedroom for access.",
+    )
+
+
+def _circulation_efficiency_check(
+    rooms: list[FloorPlanRoom],
+    total_sqft: float,
+) -> FloorPlanQualityCheck:
+    circulation_sqft = sum(
+        room.estimated_sqft
+        for room in rooms
+        if room.category in {"circulation", "entry"}
+    )
+    ratio = circulation_sqft / total_sqft if total_sqft else 0
+    if len(rooms) > 6 and ratio < 0.045:
+        return _quality_check(
+            "circulation_efficiency",
+            "Circulation efficiency",
+            FindingStatus.FAILS,
+            "Circulation area is too low for the room count; pathing is likely being forced through rooms.",
+        )
+    if ratio > 0.18:
+        return _quality_check(
+            "circulation_efficiency",
+            "Circulation efficiency",
+            FindingStatus.FAILS,
+            "Circulation area consumes too much of the plan and should be redesigned.",
+        )
+    if ratio > 0.145:
+        return _quality_check(
+            "circulation_efficiency",
+            "Circulation efficiency",
+            FindingStatus.WARNING,
+            "Circulation is workable but high; an architect should tighten the hallway/entry layout.",
+        )
+    return _quality_check(
+        "circulation_efficiency",
+        "Circulation efficiency",
+        FindingStatus.PASSES,
+        "Circulation area is within MVP efficiency assumptions for this concept.",
+    )
+
+
+def _room_area_balance_check(
+    rooms: list[FloorPlanRoom],
+    total_sqft: float,
+) -> FloorPlanQualityCheck:
+    failures: list[str] = []
+    warnings: list[str] = []
+    max_by_category = {
+        "bath": min(140, max(90, total_sqft * 0.08)),
+        "service": min(180, max(90, total_sqft * 0.09)),
+        "circulation": min(220, total_sqft * 0.12),
+        "entry": min(140, max(90, total_sqft * 0.07)),
+        "bedroom": min(340, max(240, total_sqft * 0.23)),
+        "flex": min(260, total_sqft * 0.13),
+        "kitchen": min(280, total_sqft * 0.14),
+        "unit": min(420, total_sqft * 0.2),
+    }
+    for room in rooms:
+        maximum = max_by_category.get(room.category)
+        if maximum is None:
+            continue
+        if room.estimated_sqft > maximum * 1.3:
+            failures.append(f"{room.name} ({round(room.estimated_sqft)} sqft)")
+        elif room.estimated_sqft > maximum:
+            warnings.append(f"{room.name} ({round(room.estimated_sqft)} sqft)")
+
+    if failures:
+        return _quality_check(
+            "room_area_balance",
+            "Room area balance",
+            FindingStatus.FAILS,
+            f"Rooms are implausibly oversized for their type: {', '.join(failures[:4])}.",
+        )
+    if warnings:
+        return _quality_check(
+            "room_area_balance",
+            "Room area balance",
+            FindingStatus.WARNING,
+            f"Rooms are large enough to require design review: {', '.join(warnings[:4])}.",
+        )
+    return _quality_check(
+        "room_area_balance",
+        "Room area balance",
+        FindingStatus.PASSES,
+        "Room areas stay within MVP proportional ranges for their room types.",
+    )
+
+
+def _wet_core_grouping_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
+    wet_rooms = [
+        room
+        for room in rooms
+        if room.category in {"bath", "kitchen", "service"}
+    ]
+    if len(wet_rooms) < 2:
+        return _quality_check(
+            "wet_core_grouping",
+            "Wet-core grouping",
+            FindingStatus.WARNING,
+            "Too few wet/service rooms are modeled to evaluate plumbing grouping.",
+        )
+
+    isolated = []
+    for room in wet_rooms:
+        nearest = min(
+            (_distance(_room_center(room), _room_center(candidate)) for candidate in wet_rooms if candidate.room_id != room.room_id),
+            default=0,
+        )
+        if nearest > 42:
+            isolated.append(room.name)
+
+    if len(isolated) >= 2:
+        return _quality_check(
+            "wet_core_grouping",
+            "Wet-core grouping",
+            FindingStatus.WARNING,
+            f"Wet/service rooms are dispersed and should be regrouped: {', '.join(isolated[:4])}.",
+        )
+    return _quality_check(
+        "wet_core_grouping",
+        "Wet-core grouping",
+        FindingStatus.PASSES,
+        "Kitchen, bath, and service rooms are reasonably grouped for an MVP concept.",
     )
 
 

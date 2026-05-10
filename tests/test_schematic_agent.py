@@ -37,6 +37,13 @@ def test_schematic_agent_generates_one_primary_plan() -> None:
         check.code == "exemplar_fit"
         for check in options[0].floor_plans[0].quality_report.checks
     )
+    quality_codes = {check.code for check in options[0].floor_plans[0].quality_report.checks}
+    assert {
+        "bedroom_privacy",
+        "circulation_efficiency",
+        "room_area_balance",
+        "wet_core_grouping",
+    } <= quality_codes
     assert all(
         not any(check.status == "fails" for check in option.floor_plans[0].quality_report.checks)
         for option in options
@@ -123,6 +130,9 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
 
     assert len(prompts) == 2
     assert '"revision_feedback": []' in prompts[0]
+    assert '"research_references"' in prompts[0]
+    assert '"HouseLLM"' in prompts[0]
+    assert '"reasoning_policy"' in prompts[0]
     assert '"retrieved_plan_exemplars"' in prompts[0]
     assert '"best_of_generation_count": 3' in prompts[0]
     assert "program_fit" in prompts[1]

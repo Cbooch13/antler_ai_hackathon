@@ -50,6 +50,16 @@ def test_design_route_returns_one_primary_schematic_option() -> None:
         check["code"] == "exemplar_fit"
         for check in payload["options"][0]["floorPlans"][0]["qualityReport"]["checks"]
     )
+    quality_codes = {
+        check["code"]
+        for check in payload["options"][0]["floorPlans"][0]["qualityReport"]["checks"]
+    }
+    assert {
+        "bedroom_privacy",
+        "circulation_efficiency",
+        "room_area_balance",
+        "wet_core_grouping",
+    } <= quality_codes
     assert all(
         option["floorPlans"][0]["qualityReport"]["status"] in {"passes", "warning"}
         for option in payload["options"]

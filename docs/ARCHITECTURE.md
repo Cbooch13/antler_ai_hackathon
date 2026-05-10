@@ -162,11 +162,13 @@ Design service
   |-- Uses OpenAI structured outputs when LLM_SCHEMATIC_ENABLED=true
   |-- Falls back to the local SchematicDesignAgent otherwise
   |-- Retrieves plan exemplars by property type, unit count, bedrooms, target sqft, and lot size
+  |-- Adds research-reference guidance for ResPlan, RPLAN, Tell2Design, Graph2Plan, HouseLLM, DStruct2Design, and ZURU/AWS
   |-- Generates one primary human-comfort option from spec + property context
   |-- Locally generates seven exemplar-guided candidates and returns the best-scored plan
   |-- Reconciles room areas to the requested building square footage
   |-- Adds one dimensioned architectural concept plan to the option
   |-- Uses normalized rooms, walls, openings, scale assumptions, and SVG exports
+  |-- Rejects synthetic path repair, bedroom access through other bedrooms, inefficient circulation, and implausible room-area balance
   |-- Carries forward warning/unknown/failing compliance findings
   |
   v
@@ -205,9 +207,23 @@ Stage 6K adds the first retrieved-exemplar layer. The service maintains a small 
 
 The local generator now creates seven exemplar-guided candidates, runs deterministic quality and exemplar-fit checks, and returns only the highest-scoring primary plan. The OpenAI path includes the retrieved exemplars in the structured prompt and uses a default seven-generation revision budget before returning the first accepted plan or the best advisory plan.
 
-## Stage 6L Agentic Floor-Plan Pipeline
+## Stage 6L Research-Guided Plan Realism Constraints
 
-Stage 6L should continue replacing direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6L adds research-reference guidance and stricter deterministic realism checks. The prompt includes method references for ResPlan, RPLAN, Tell2Design, Graph2Plan, HouseLLM, DStruct2Design, and ZURU/AWS so the LLM can follow the same planner/refiner/evaluator pattern, but the references are guidance only. The prompt explicitly asks for concise design assumptions and structured room data, not hidden chain-of-thought.
+
+The checker now treats pathing and spacing as architectural constraints instead of cosmetic details:
+
+- synthetic fallback path connections fail quality instead of silently making a room reachable
+- bedrooms must connect directly to hall or entry circulation
+- room-area balance flags implausibly large baths, bedrooms, services, entries, and unit rooms
+- circulation efficiency must stay within MVP hallway/entry ratio assumptions
+- wet rooms are checked for reasonable grouping
+
+The LLM geometry refiner also inserts small wet-core support and private support rooms when a model underspecifies a compact plan, which prevents one bathroom or bedroom from absorbing all remaining square footage.
+
+## Stage 6M Agentic Floor-Plan Pipeline
+
+Stage 6M should continue replacing direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata

@@ -12,13 +12,13 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6K - Dataset-Retrieved Plan Exemplars**.
+Current implementation target: **Stage 6L - Research-Guided Plan Realism Constraints**.
 
-Stage 6K provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, one primary schematic plan, architectural-style SVG plan rendering, deterministic floor-plan quality reports, stricter OpenAI revision-loop acceptance, a structured geometry refiner for LLM plans, room-boundary wall generation, door/window/furniture/fixture symbols, explicit room-connection graphs, path-connectivity checks, exemplar-guided plan retrieval, local best-of-7 candidate selection, and tests. Future stages should be implemented only after review.
+Stage 6L provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, one primary schematic plan, architectural-style SVG plan rendering, deterministic floor-plan quality reports, stricter OpenAI revision-loop acceptance, a structured geometry refiner for LLM plans, room-boundary wall generation, door/window/furniture/fixture symbols, explicit room-connection graphs, path-connectivity checks, exemplar-guided plan retrieval, local best-of-7 candidate selection, research-reference prompt guidance, stricter bedroom/privacy path checks, circulation-efficiency checks, room-area balance checks, wet-core grouping checks, and tests. Future stages should be implemented only after review.
 
-Next planning target: **Stage 6L - Plan Realism Constraint Solver**.
+Next planning target: **Stage 6M - Real Dataset Exemplar Import Pipeline**.
 
-Stage 6L should add stronger architectural realism constraints for room-area maxima, hallway efficiency, door placement, fixture clearances, multi-level stairs, and exterior-window access before any generated plan is treated as high confidence.
+Stage 6M should add a license-reviewed import pipeline for research or owned floor-plan exemplars, converting vector/raster sources into the internal room graph, room-ratio, adjacency, and validation schema.
 
 Each stage must end with:
 
