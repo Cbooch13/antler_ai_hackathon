@@ -9,4 +9,4 @@ def test_health_check_reports_stage_six_e() -> None:
     response = client.get("/health")
 
     assert response.status_code == 200
-    assert response.json() == {"status": "ok", "stage": "6e-llm-schematic-agent"}
+    assert response.json() == {"status": "ok", "stage": "6f-floor-plan-quality"}

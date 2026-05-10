@@ -23,6 +23,12 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
     assert all(option.floor_plans[0].openings for option in options)
     assert all(option.target_building_sqft == 2_200 for option in options)
     assert all(abs(option.floor_plans[0].sqft_delta) < 0.01 for option in options)
+    assert all(option.floor_plans[0].quality_report.score > 0 for option in options)
+    assert all(option.floor_plans[0].quality_report.checks for option in options)
+    assert all(
+        not any(check.status == "fails" for check in option.floor_plans[0].quality_report.checks)
+        for option in options
+    )
     assert all(option.floor_plans[0].scale_assumption.startswith("Concept scale") for option in options)
     assert all(option.floor_plans[0].visual_exports[0].format == "svg" for option in options)
 
@@ -56,3 +62,4 @@ def test_openai_schematic_agent_falls_back_when_disabled(monkeypatch) -> None:
 
     assert [option.strategy for option in options] == ["human_comfort", "space_utilization"]
     assert all(option.floor_plans for option in options)
+    assert all(option.floor_plans[0].quality_report.checks for option in options)

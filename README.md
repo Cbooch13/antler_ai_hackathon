@@ -12,13 +12,13 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6E - LLM Schematic Agent**.
+Current implementation target: **Stage 6F - Floor-Plan Quality Validation**.
 
-Stage 6E provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, and tests. Future stages should be implemented only after review.
+Stage 6F provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, deterministic floor-plan quality reports, and tests. Future stages should be implemented only after review.
 
-Next planning target: **Stage 6F - Agentic Floor-Plan Pipeline**.
+Next planning target: **Stage 6G - Agentic Floor-Plan Revision Loop**.
 
-Stage 6F is documented in `SPEC.md` and `docs/ARCHITECTURE.md`. It shifts schematic generation from direct plan rendering toward a research-backed planner/refiner/renderer pattern: an LLM Planner Agent produces structured floor-plan JSON, deterministic constraint tools validate square-foot usage and architectural rules, a geometry refiner resolves exact room/wall layout, and a deterministic renderer exports SVG first with later DXF/Revit-compatible or AutoHDR-ready packages.
+Stage 6G should build on the Stage 6F quality report by feeding deterministic constraint failures back into the LLM Planner Agent before geometry is finalized.
 
 Each stage must end with:
 
@@ -96,7 +96,7 @@ curl -X POST "http://127.0.0.1:8000/compliance/evaluate" \
   -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"listingId":"kaggle-austin-001"}'
 ```
 
-Stage 6D schematic options endpoint:
+Stage 6F schematic options endpoint:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/design/schematics" \

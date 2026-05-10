@@ -173,9 +173,15 @@ DesignGenerationResponse
 
 Stage 6E is LLM-assisted, generative, and conceptual. It creates option cards, dimensioned architectural-style plan views, and downloadable SVG exports for review and later conversational tuning, but it does not create permit drawings, measured CAD/BIM files, AutoHDR imagery, or walkthrough assets.
 
-## Stage 6F Agentic Floor-Plan Pipeline
+## Stage 6F Floor-Plan Quality Validation
 
-Stage 6F should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6F adds deterministic floor-plan quality reports to every generated plan. The current checker evaluates area reconciliation, footprint area, room bounds, room overlap, requested program fit, MVP room dimensions, circulation, openings, second-unit separation, and solar-orientation assumptions. These reports are returned in the API and rendered in the website so poor plans are visible instead of hidden behind an SVG.
+
+This is the first tool layer for the agentic loop. The next refinement should feed failing or warning checks back into the LLM Planner Agent before geometry is accepted.
+
+## Stage 6G Agentic Floor-Plan Pipeline
+
+Stage 6G should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata

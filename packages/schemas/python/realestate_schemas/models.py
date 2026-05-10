@@ -289,6 +289,29 @@ class GeneratedVisualExport(ContractModel):
     notes: list[str] = Field(default_factory=list)
 
 
+class FloorPlanQualityCheck(ContractModel):
+    code: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    status: FindingStatus
+    summary: str = Field(min_length=1)
+
+
+class FloorPlanQualityReport(ContractModel):
+    score: float = Field(ge=0, le=100)
+    status: FindingStatus
+    checks: list[FloorPlanQualityCheck] = Field(default_factory=list)
+    review_notes: list[str] = Field(default_factory=list)
+
+
+def default_floor_plan_quality_report() -> FloorPlanQualityReport:
+    return FloorPlanQualityReport(
+        score=0,
+        status=FindingStatus.UNKNOWN,
+        checks=[],
+        review_notes=["Floor-plan quality has not been evaluated."],
+    )
+
+
 class FloorPlan(ContractModel):
     plan_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
@@ -302,6 +325,7 @@ class FloorPlan(ContractModel):
     walls: list[FloorPlanWall] = Field(default_factory=list)
     openings: list[FloorPlanOpening] = Field(default_factory=list)
     visual_exports: list[GeneratedVisualExport] = Field(default_factory=list)
+    quality_report: FloorPlanQualityReport = Field(default_factory=default_floor_plan_quality_report)
     notes: list[str] = Field(default_factory=list)
 
 

@@ -181,6 +181,20 @@ export const generatedVisualExportSchema = z.object({
   notes: z.array(z.string())
 });
 
+export const floorPlanQualityCheckSchema = z.object({
+  code: z.string().min(1),
+  label: z.string().min(1),
+  status: z.enum(["passes", "fails", "warning", "unknown"]),
+  summary: z.string().min(1)
+});
+
+export const floorPlanQualityReportSchema = z.object({
+  score: z.number().min(0).max(100),
+  status: z.enum(["passes", "fails", "warning", "unknown"]),
+  checks: z.array(floorPlanQualityCheckSchema),
+  reviewNotes: z.array(z.string())
+});
+
 export const floorPlanSchema = z.object({
   planId: z.string().min(1),
   name: z.string().min(1),
@@ -194,6 +208,7 @@ export const floorPlanSchema = z.object({
   walls: z.array(floorPlanWallSchema),
   openings: z.array(floorPlanOpeningSchema),
   visualExports: z.array(generatedVisualExportSchema),
+  qualityReport: floorPlanQualityReportSchema,
   notes: z.array(z.string())
 });
 

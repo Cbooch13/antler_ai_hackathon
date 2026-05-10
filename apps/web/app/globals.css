@@ -434,6 +434,37 @@ span,
   stroke: #2f6f69;
 }
 
+.quality-report {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid #d9ddd5;
+  background: #ffffff;
+}
+
+.quality-check-list {
+  display: grid;
+  gap: 5px;
+}
+
+.quality-check {
+  padding-left: 8px;
+  border-left: 3px solid #b9c1bb;
+}
+
+.quality-passes {
+  border-color: #2f6f69;
+}
+
+.quality-warning,
+.quality-unknown {
+  border-color: #b37811;
+}
+
+.quality-fails {
+  border-color: #9f2f27;
+}
+
 .room-list {
   display: flex;
   flex-wrap: wrap;

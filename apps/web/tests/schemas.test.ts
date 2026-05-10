@@ -121,6 +121,19 @@ describe("designGenerationResponseSchema", () => {
                   notes: ["Conceptual export."]
                 }
               ],
+              qualityReport: {
+                score: 90,
+                status: "warning",
+                checks: [
+                  {
+                    code: "circulation",
+                    label: "Circulation",
+                    status: "warning",
+                    summary: "Dedicated circulation needs refinement."
+                  }
+                ],
+                reviewNotes: ["Professional review required."]
+              },
               notes: ["Conceptual block plan only."]
             }
           ],

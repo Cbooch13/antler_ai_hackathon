@@ -503,6 +503,24 @@ export function IntakeForm() {
                       Footprint: {plan.footprintWidthFt.toFixed(1)} ft x{" "}
                       {plan.footprintDepthFt.toFixed(1)} ft · {plan.scaleAssumption}
                     </p>
+                    <div className={`quality-report quality-${plan.qualityReport.status}`}>
+                      <div className="result-card-header">
+                        <strong>Plan quality</strong>
+                        <span>
+                          {plan.qualityReport.status} · {Math.round(plan.qualityReport.score)}/100
+                        </span>
+                      </div>
+                      <div className="quality-check-list">
+                        {plan.qualityReport.checks.map((check) => (
+                          <p className={`quality-check quality-${check.status}`} key={check.code}>
+                            <strong>{check.label}:</strong> {check.summary}
+                          </p>
+                        ))}
+                      </div>
+                      {plan.qualityReport.reviewNotes.map((note) => (
+                        <p key={note}>{note}</p>
+                      ))}
+                    </div>
                     <svg
                       className="floor-plan-grid"
                       aria-label={`${plan.name} conceptual architectural plan`}

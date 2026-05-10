@@ -9,8 +9,11 @@ from xml.sax.saxutils import escape
 from realestate_schemas import (
     ComplianceFinding,
     DesignOption,
+    FindingStatus,
     FloorPlan,
     FloorPlanOpening,
+    FloorPlanQualityCheck,
+    FloorPlanQualityReport,
     FloorPlanRoom,
     FloorPlanWall,
     GeneratedVisualExport,
@@ -150,6 +153,17 @@ class SchematicDesignAgent:
 
         walls = _walls()
         openings = self._openings(strategy)
+        quality_report = _quality_report(
+            rooms=rooms,
+            walls=walls,
+            openings=openings,
+            total_sqft=total_sqft,
+            footprint_width_ft=footprint_width_ft,
+            footprint_depth_ft=footprint_depth_ft,
+            sqft_delta=sqft_delta,
+            spec=spec,
+            strategy=strategy,
+        )
         scale_assumption = (
             f"Concept scale: 1 SVG plan unit = {footprint_width_ft / 100:.2f} ft horizontally "
             f"and {footprint_depth_ft / 100:.2f} ft vertically; dimensions rounded to 0.5 ft."
@@ -188,6 +202,7 @@ class SchematicDesignAgent:
                     ],
                 )
             ],
+            quality_report=quality_report,
             notes=notes
             + [
                 f"Requested program: {spec.bedrooms or 'unspecified'} bedrooms, {spec.bathrooms or 'unspecified'} bathrooms, {spec.units} unit(s).",
@@ -445,6 +460,7 @@ def _options_from_llm_payload(
                 floor_count=len(floors),
                 option_name=option_payload["name"],
                 solar_strategy=option_payload["solar_strategy"],
+                spec=agent_input.spec,
             )
             for floor_index, floor_payload in enumerate(floors)
         ]
@@ -479,6 +495,7 @@ def _floor_from_llm(
     floor_count: int,
     option_name: str,
     solar_strategy: str,
+    spec: UserBuildSpec,
 ) -> FloorPlan:
     floor_sqft = round(total_option_sqft / max(1, floor_count), 2)
     rooms = _rooms_from_llm_rooms(floor_payload["rooms"], floor_sqft)
@@ -497,6 +514,17 @@ def _floor_from_llm(
     )
     walls = _walls()
     openings = _openings_for_strategy(strategy)
+    quality_report = _quality_report(
+        rooms=rooms,
+        walls=walls,
+        openings=openings,
+        total_sqft=floor_sqft,
+        footprint_width_ft=footprint_width_ft,
+        footprint_depth_ft=footprint_depth_ft,
+        sqft_delta=sqft_delta,
+        spec=spec,
+        strategy=strategy,
+    )
     svg = _svg_export(
         title=f"{option_name} - {floor_payload['level']}",
         total_sqft=floor_sqft,
@@ -531,6 +559,7 @@ def _floor_from_llm(
                 ],
             )
         ],
+        quality_report=quality_report,
         notes=[solar_strategy, *floor_payload["floor_notes"]],
     )
 
@@ -710,6 +739,344 @@ def _rooms_from_layouts(
             )
         )
     return rooms
+
+
+def _quality_report(
+    rooms: list[FloorPlanRoom],
+    walls: list[FloorPlanWall],
+    openings: list[FloorPlanOpening],
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+    sqft_delta: float,
+    spec: UserBuildSpec,
+    strategy: str,
+) -> FloorPlanQualityReport:
+    checks = [
+        _area_reconciliation_check(total_sqft, sqft_delta),
+        _footprint_check(total_sqft, footprint_width_ft, footprint_depth_ft),
+        _room_bounds_check(rooms),
+        _room_overlap_check(rooms),
+        _room_program_check(rooms, spec),
+        _room_dimension_check(rooms),
+        _circulation_check(rooms),
+        _opening_check(openings),
+        _unit_separation_check(rooms, walls, spec),
+        _solar_check(openings, strategy),
+    ]
+    score = 100
+    for check in checks:
+        if check.status == FindingStatus.FAILS:
+            score -= 28
+        elif check.status == FindingStatus.WARNING:
+            score -= 10
+        elif check.status == FindingStatus.UNKNOWN:
+            score -= 5
+
+    if any(check.status == FindingStatus.FAILS for check in checks):
+        status = FindingStatus.FAILS
+    elif any(check.status in {FindingStatus.WARNING, FindingStatus.UNKNOWN} for check in checks):
+        status = FindingStatus.WARNING
+    else:
+        status = FindingStatus.PASSES
+
+    return FloorPlanQualityReport(
+        score=max(0, min(100, score)),
+        status=status,
+        checks=checks,
+        review_notes=[
+            "Quality checks are deterministic MVP heuristics for product review, not professional architectural validation.",
+            "Stage 6F should use this report as the tool feedback loop for revising future LLM layout JSON.",
+        ],
+    )
+
+
+def _quality_check(
+    code: str,
+    label: str,
+    status: FindingStatus,
+    summary: str,
+) -> FloorPlanQualityCheck:
+    return FloorPlanQualityCheck(code=code, label=label, status=status, summary=summary)
+
+
+def _area_reconciliation_check(total_sqft: float, sqft_delta: float) -> FloorPlanQualityCheck:
+    abs_delta = abs(sqft_delta)
+    if abs_delta <= 0.5:
+        status = FindingStatus.PASSES
+        summary = "Room areas reconcile to the target floor-plan square footage."
+    elif abs_delta <= max(10, total_sqft * 0.01):
+        status = FindingStatus.WARNING
+        summary = f"Room areas are within 1% of target, with {sqft_delta:.2f} sqft delta."
+    else:
+        status = FindingStatus.FAILS
+        summary = f"Room areas miss the target by {sqft_delta:.2f} sqft."
+    return _quality_check("area_reconciliation", "Area reconciliation", status, summary)
+
+
+def _footprint_check(total_sqft: float, width_ft: float, depth_ft: float) -> FloorPlanQualityCheck:
+    footprint_area = width_ft * depth_ft
+    delta_ratio = abs(footprint_area - total_sqft) / total_sqft
+    aspect_ratio = max(width_ft, depth_ft) / min(width_ft, depth_ft)
+    if delta_ratio > 0.03:
+        return _quality_check(
+            "footprint_area",
+            "Footprint area",
+            FindingStatus.FAILS,
+            "Footprint dimensions do not reconcile to the stated floor-plan square footage.",
+        )
+    if aspect_ratio > 3.2:
+        return _quality_check(
+            "footprint_area",
+            "Footprint area",
+            FindingStatus.WARNING,
+            "Footprint area reconciles, but the overall plan is unusually elongated.",
+        )
+    return _quality_check(
+        "footprint_area",
+        "Footprint area",
+        FindingStatus.PASSES,
+        "Footprint dimensions reconcile to the stated floor-plan square footage.",
+    )
+
+
+def _room_bounds_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
+    out_of_bounds = [
+        room.name
+        for room in rooms
+        if room.x < 0 or room.y < 0 or room.x + room.width > 100.25 or room.y + room.height > 100.25
+    ]
+    if out_of_bounds:
+        return _quality_check(
+            "room_bounds",
+            "Room bounds",
+            FindingStatus.FAILS,
+            f"Rooms extend outside the normalized footprint: {', '.join(out_of_bounds[:4])}.",
+        )
+    return _quality_check(
+        "room_bounds",
+        "Room bounds",
+        FindingStatus.PASSES,
+        "All rooms fit inside the normalized floor-plan footprint.",
+    )
+
+
+def _room_overlap_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
+    overlap_pairs: list[str] = []
+    overlap_area = 0.0
+    for index, first in enumerate(rooms):
+        for second in rooms[index + 1 :]:
+            x_overlap = max(0, min(first.x + first.width, second.x + second.width) - max(first.x, second.x))
+            y_overlap = max(0, min(first.y + first.height, second.y + second.height) - max(first.y, second.y))
+            pair_area = x_overlap * y_overlap
+            if pair_area > 0.5:
+                overlap_pairs.append(f"{first.name} / {second.name}")
+                overlap_area += pair_area
+
+    if overlap_area > 5:
+        return _quality_check(
+            "room_overlap",
+            "Room overlap",
+            FindingStatus.FAILS,
+            f"Significant room overlap detected: {', '.join(overlap_pairs[:3])}.",
+        )
+    if overlap_pairs:
+        return _quality_check(
+            "room_overlap",
+            "Room overlap",
+            FindingStatus.WARNING,
+            f"Minor room overlap or rounding conflict detected: {', '.join(overlap_pairs[:3])}.",
+        )
+    return _quality_check(
+        "room_overlap",
+        "Room overlap",
+        FindingStatus.PASSES,
+        "No meaningful room overlaps detected.",
+    )
+
+
+def _room_program_check(rooms: list[FloorPlanRoom], spec: UserBuildSpec) -> FloorPlanQualityCheck:
+    bedroom_count = sum(1 for room in rooms if room.category == "bedroom")
+    bath_count = sum(1 for room in rooms if room.category == "bath")
+    has_kitchen = any(room.category == "kitchen" for room in rooms)
+    has_living = any(room.category == "living" for room in rooms)
+    target_bedrooms = spec.bedrooms or 1
+    target_bathrooms = math.floor(spec.bathrooms or 1)
+    missing: list[str] = []
+    if bedroom_count < target_bedrooms:
+        missing.append(f"{target_bedrooms - bedroom_count} bedroom(s)")
+    if bath_count < target_bathrooms:
+        missing.append(f"{target_bathrooms - bath_count} bath(s)")
+    if not has_kitchen:
+        missing.append("kitchen")
+    if not has_living:
+        missing.append("living area")
+
+    if missing:
+        return _quality_check(
+            "program_fit",
+            "Program fit",
+            FindingStatus.FAILS,
+            f"Plan is missing requested program elements: {', '.join(missing)}.",
+        )
+    return _quality_check(
+        "program_fit",
+        "Program fit",
+        FindingStatus.PASSES,
+        "Plan includes the requested bedroom/bath count plus kitchen and living areas.",
+    )
+
+
+def _room_dimension_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
+    minimums = {
+        "bedroom": (70, 7),
+        "bath": (24, 3),
+        "kitchen": (70, 6),
+        "living": (120, 8),
+        "unit": (180, 8),
+        "circulation": (35, 3),
+    }
+    failures: list[str] = []
+    warnings: list[str] = []
+    for room in rooms:
+        min_sqft, min_dimension = minimums.get(room.category, (24, 3))
+        shortest_side = min(room.width_ft, room.depth_ft)
+        longest_side = max(room.width_ft, room.depth_ft)
+        if room.estimated_sqft < min_sqft or shortest_side < min_dimension:
+            failures.append(room.name)
+        elif longest_side / max(shortest_side, 1) > 4.8:
+            warnings.append(room.name)
+
+    if failures:
+        return _quality_check(
+            "room_dimensions",
+            "Room dimensions",
+            FindingStatus.FAILS,
+            f"Rooms below MVP minimum size assumptions: {', '.join(failures[:4])}.",
+        )
+    if warnings:
+        return _quality_check(
+            "room_dimensions",
+            "Room dimensions",
+            FindingStatus.WARNING,
+            f"Rooms have elongated proportions that need architect review: {', '.join(warnings[:4])}.",
+        )
+    return _quality_check(
+        "room_dimensions",
+        "Room dimensions",
+        FindingStatus.PASSES,
+        "Room dimensions meet MVP minimum size and proportion assumptions.",
+    )
+
+
+def _circulation_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
+    has_circulation = any(room.category == "circulation" for room in rooms)
+    public_rooms = [room for room in rooms if room.category in {"entry", "living", "kitchen"}]
+    private_rooms = [room for room in rooms if room.category in {"bedroom", "bath", "unit"}]
+    if not public_rooms or not private_rooms:
+        return _quality_check(
+            "circulation",
+            "Circulation",
+            FindingStatus.WARNING,
+            "Public/private room zoning could not be evaluated from this room mix.",
+        )
+    if not has_circulation and len(rooms) > 6:
+        return _quality_check(
+            "circulation",
+            "Circulation",
+            FindingStatus.WARNING,
+            "No dedicated circulation room is modeled; door reachability needs geometric refinement.",
+        )
+    return _quality_check(
+        "circulation",
+        "Circulation",
+        FindingStatus.PASSES,
+        "Plan includes a legible public/private room mix and modeled circulation.",
+    )
+
+
+def _opening_check(openings: list[FloorPlanOpening]) -> FloorPlanQualityCheck:
+    door_count = sum(1 for opening in openings if opening.opening_type == "door")
+    window_count = sum(1 for opening in openings if opening.opening_type == "window")
+    if door_count == 0:
+        return _quality_check(
+            "openings",
+            "Openings",
+            FindingStatus.FAILS,
+            "No exterior door opening is modeled.",
+        )
+    if window_count < 2:
+        return _quality_check(
+            "openings",
+            "Openings",
+            FindingStatus.WARNING,
+            "Few window openings are modeled; daylight and egress need refinement.",
+        )
+    return _quality_check(
+        "openings",
+        "Openings",
+        FindingStatus.PASSES,
+        "Exterior door and multiple window openings are modeled.",
+    )
+
+
+def _unit_separation_check(
+    rooms: list[FloorPlanRoom],
+    walls: list[FloorPlanWall],
+    spec: UserBuildSpec,
+) -> FloorPlanQualityCheck:
+    if spec.units <= 1:
+        return _quality_check(
+            "unit_separation",
+            "Unit separation",
+            FindingStatus.PASSES,
+            "Single-unit plan does not require second-unit separation.",
+        )
+    has_second_unit = any(room.category == "unit" for room in rooms)
+    has_unit_wall = any(wall.wall_id == "unit-separation" for wall in walls)
+    has_adu_bath = any("adu" in room.room_id and room.category == "bath" for room in rooms)
+    if has_second_unit and has_unit_wall and has_adu_bath:
+        return _quality_check(
+            "unit_separation",
+            "Unit separation",
+            FindingStatus.PASSES,
+            "Second-unit living, bath, and conceptual separation wall are modeled.",
+        )
+    return _quality_check(
+        "unit_separation",
+        "Unit separation",
+        FindingStatus.WARNING,
+        "Second-unit separation is incomplete and needs geometric/code refinement.",
+    )
+
+
+def _solar_check(openings: list[FloorPlanOpening], strategy: str) -> FloorPlanQualityCheck:
+    south_or_east_openings = [
+        opening
+        for opening in openings
+        if "south" in opening.opening_id or "east" in opening.opening_id or opening.y >= 99 or opening.x >= 99
+    ]
+    west_openings = [opening for opening in openings if "west" in opening.opening_id or opening.x <= 1]
+    if south_or_east_openings and not west_openings:
+        return _quality_check(
+            "solar_orientation",
+            "Solar orientation",
+            FindingStatus.PASSES,
+            "Openings favor the assumed south/east daylight strategy.",
+        )
+    if south_or_east_openings:
+        return _quality_check(
+            "solar_orientation",
+            "Solar orientation",
+            FindingStatus.WARNING,
+            "Plan includes south/east daylight assumptions but needs parcel-frontage verification.",
+        )
+    return _quality_check(
+        "solar_orientation",
+        "Solar orientation",
+        FindingStatus.WARNING,
+        f"{strategy.replace('_', ' ').title()} plan has generic openings; solar strategy needs true parcel orientation.",
+    )
 
 
 def _walls() -> list[FloorPlanWall]:
