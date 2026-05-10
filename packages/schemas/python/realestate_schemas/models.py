@@ -260,6 +260,18 @@ class DesignOption(ContractModel):
     compliance_findings: list[ComplianceFinding] = Field(default_factory=list)
 
 
+class DesignGenerationRequest(ContractModel):
+    spec: UserBuildSpec
+    listing_id: str = Field(min_length=1)
+
+
+class DesignGenerationResponse(ContractModel):
+    listing: Listing
+    parcel: Parcel
+    options: list[DesignOption] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
+
+
 class Document(ContractModel):
     document_id: str = Field(min_length=1)
     project_id: str = Field(min_length=1)

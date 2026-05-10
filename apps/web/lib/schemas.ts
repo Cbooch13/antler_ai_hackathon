@@ -142,6 +142,23 @@ export const complianceEvaluationResponseSchema = z.object({
   professionalVerificationRequired: z.boolean()
 });
 
+export const designOptionSchema = z.object({
+  optionId: z.string().min(1),
+  name: z.string().min(1),
+  strategy: z.string().min(1),
+  targetBuildingSqft: z.number().positive(),
+  units: z.number().int().positive(),
+  assumptions: z.array(z.string()),
+  complianceFindings: z.array(complianceFindingSchema)
+});
+
+export const designGenerationResponseSchema = z.object({
+  listing: listingSchema,
+  parcel: parcelSchema,
+  options: z.array(designOptionSchema),
+  warnings: z.array(z.string())
+});
+
 export type UserBuildSpec = z.infer<typeof userBuildSpecSchema>;
 export type IntakeNormalizeRequest = z.infer<typeof intakeNormalizeRequestSchema>;
 export type NormalizedBuildSpecResponse = z.infer<typeof normalizedBuildSpecResponseSchema>;
@@ -149,3 +166,4 @@ export type LotSearchResponse = z.infer<typeof lotSearchResponseSchema>;
 export type ParcelDetailResponse = z.infer<typeof parcelDetailResponseSchema>;
 export type ComplianceFinding = z.infer<typeof complianceFindingSchema>;
 export type ComplianceEvaluationResponse = z.infer<typeof complianceEvaluationResponseSchema>;
+export type DesignGenerationResponse = z.infer<typeof designGenerationResponseSchema>;

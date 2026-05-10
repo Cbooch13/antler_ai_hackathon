@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 5 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, and advisory compliance feasibility:
+Stage 6 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, advisory compliance feasibility, and deterministic schematic option generation:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -29,6 +29,8 @@ Stage 5 establishes the system foundation, the first user-facing intake path, of
 - `/compliance/evaluate` API route for deterministic advisory feasibility findings.
 - Website feasibility panel after selecting a lot and validated build spec.
 - Explicit statuses for passes, warnings, unknowns, source limitations, and professional-review requirements.
+- `/design/schematics` API route for conservative, balanced, and max-yield conceptual schematic options.
+- Website schematic-options panel after compliance feasibility has been generated.
 
 ## Source Priority
 
@@ -113,6 +115,21 @@ Stage 5 compliance rules are deterministic and advisory. They may report:
 Compliance results must never imply permit approval. Every finding must include a status, confidence level, professional-verification flag, and citations/source metadata where available.
 
 Metrics whose data has not been integrated must be shown as `Unknown` with a reason, not omitted.
+
+## Schematic Options
+
+Stage 6 schematic options are deterministic planning outputs generated from the selected lot, validated build spec, and compliance findings. The service returns:
+
+- conservative envelope option
+- balanced program option
+- max-yield test option
+- target building square footage
+- unit count
+- assumptions
+- carried-forward compliance findings
+- warnings that outputs are conceptual and require professional review
+
+Stage 6 does not generate permit-ready architectural drawings, CAD files, renderings, AutoHDR assets, or walkthroughs.
 
 ## Agent Responsibilities
 

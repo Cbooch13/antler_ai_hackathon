@@ -93,6 +93,7 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "Listing" in schema["$defs"]
     assert "ComplianceMetric" in schema["$defs"]
     assert "MetricBasis" in schema["$defs"]
+    assert "DesignOption" in schema["$defs"]
     assert "basis" in schema["$defs"]["ComplianceMetric"]["required"]
 
 

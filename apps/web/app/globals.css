@@ -114,7 +114,8 @@ h2 {
 .conversation-box,
 .results,
 .parcel-detail,
-.compliance-panel {
+.compliance-panel,
+.design-panel {
   display: grid;
   gap: 16px;
   padding: 24px;
@@ -196,7 +197,8 @@ span,
 
 .results h3,
 .parcel-detail h3,
-.compliance-panel h3 {
+.compliance-panel h3,
+.design-panel h3 {
   margin: 0;
   font-size: 1rem;
 }
@@ -289,6 +291,10 @@ span,
 }
 
 .compliance-panel {
+  background: #ffffff;
+}
+
+.design-panel {
   background: #ffffff;
 }
 

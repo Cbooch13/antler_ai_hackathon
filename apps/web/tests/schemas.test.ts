@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   lotSearchResponseSchema,
   complianceEvaluationResponseSchema,
+  designGenerationResponseSchema,
   normalizedBuildSpecResponseSchema,
   parcelDetailResponseSchema,
   userBuildSpecSchema
@@ -39,6 +40,42 @@ describe("userBuildSpecSchema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("designGenerationResponseSchema", () => {
+  it("accepts deterministic schematic options", () => {
+    const result = designGenerationResponseSchema.safeParse({
+      listing: {
+        listingId: "kaggle-austin-001",
+        address: "4307 Avenue G, Austin, TX 78751",
+        neighborhood: "Hyde Park / Central Austin",
+        priceUsd: 825000,
+        units: 2,
+        sourceMode: "prototype_static_dataset",
+        currentInventory: false,
+        sources: []
+      },
+      parcel: {
+        parcelId: "prototype-kaggle-austin-001",
+        address: "4307 Avenue G, Austin, TX 78751",
+        sources: []
+      },
+      options: [
+        {
+          optionId: "schematic-balanced",
+          name: "Balanced Program",
+          strategy: "balanced",
+          targetBuildingSqft: 2200,
+          units: 2,
+          assumptions: ["Tracks the requested program."],
+          complianceFindings: []
+        }
+      ],
+      warnings: ["Conceptual planning only."]
+    });
+
+    expect(result.success).toBe(true);
   });
 });
 

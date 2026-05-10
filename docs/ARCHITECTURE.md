@@ -145,3 +145,24 @@ ComplianceEvaluationResponse
 ```
 
 The LLM does not own final compliance status. Stage 5 findings are deterministic and explicitly advisory until official zoning, parcel, tree, floodplain, WUI, survey, and permit-review data are joined.
+
+## Stage 6 Schematic Options
+
+```text
+Compliance feasibility + selected lot + validated UserBuildSpec
+  |
+  v
+POST /design/schematics
+  |
+  v
+Design service
+  |
+  |-- Reuses deterministic compliance response
+  |-- Creates conservative, balanced, and max-yield options
+  |-- Carries forward warning/unknown/failing compliance findings
+  |
+  v
+DesignGenerationResponse
+```
+
+Stage 6 is still deterministic and conceptual. It creates option cards for review and later conversational tuning, but it does not create permit drawings, CAD/BIM files, AutoHDR imagery, or walkthrough assets.

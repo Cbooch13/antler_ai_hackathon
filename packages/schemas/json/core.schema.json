@@ -210,6 +210,34 @@
         "source": { "type": "string", "minLength": 1 },
         "notes": { "type": "string" }
       }
+    },
+    "DesignOption": {
+      "type": "object",
+      "required": [
+        "optionId",
+        "name",
+        "strategy",
+        "targetBuildingSqft",
+        "units",
+        "assumptions",
+        "complianceFindings"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "optionId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "strategy": { "type": "string" },
+        "targetBuildingSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "units": { "type": "integer", "minimum": 1 },
+        "assumptions": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "complianceFindings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ComplianceFinding" }
+        }
+      }
     }
   }
 }

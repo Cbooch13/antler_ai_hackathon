@@ -5,10 +5,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   type ComplianceEvaluationResponse,
+  type DesignGenerationResponse,
   type NormalizedBuildSpecResponse,
   type ParcelDetailResponse,
   type UserBuildSpec,
   complianceEvaluationResponseSchema,
+  designGenerationResponseSchema,
   lotSearchResponseSchema,
   normalizedBuildSpecResponseSchema,
   parcelDetailResponseSchema,
@@ -41,11 +43,13 @@ export function IntakeForm() {
   const [lotSearch, setLotSearch] = useState<LotSearchResponse | null>(null);
   const [parcelDetail, setParcelDetail] = useState<ParcelDetailResponse | null>(null);
   const [compliance, setCompliance] = useState<ComplianceEvaluationResponse | null>(null);
+  const [designOptions, setDesignOptions] = useState<DesignGenerationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isNormalizing, setIsNormalizing] = useState(false);
   const [isSearchingLots, setIsSearchingLots] = useState(false);
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [isCheckingCompliance, setIsCheckingCompliance] = useState(false);
+  const [isGeneratingDesign, setIsGeneratingDesign] = useState(false);
 
   const {
     register,
@@ -74,6 +78,7 @@ export function IntakeForm() {
     setLotSearch(null);
     setParcelDetail(null);
     setCompliance(null);
+    setDesignOptions(null);
   }
 
   async function normalizeText() {
@@ -96,6 +101,7 @@ export function IntakeForm() {
       setLotSearch(null);
       setParcelDetail(null);
       setCompliance(null);
+      setDesignOptions(null);
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -139,6 +145,7 @@ export function IntakeForm() {
       setLotSearch(lotSearchResponseSchema.parse(await response.json()));
       setParcelDetail(null);
       setCompliance(null);
+      setDesignOptions(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not search prototype lots.");
     } finally {
@@ -159,6 +166,7 @@ export function IntakeForm() {
 
       setParcelDetail(parcelDetailResponseSchema.parse(await response.json()));
       setCompliance(null);
+      setDesignOptions(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load parcel context.");
     } finally {
@@ -190,10 +198,42 @@ export function IntakeForm() {
       }
 
       setCompliance(complianceEvaluationResponseSchema.parse(await response.json()));
+      setDesignOptions(null);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not run feasibility check.");
     } finally {
       setIsCheckingCompliance(false);
+    }
+  }
+
+  async function generateSchematics() {
+    if (!result?.spec || !parcelDetail?.listing.listingId) {
+      setError("Validate a spec and select a lot before generating schematics.");
+      return;
+    }
+
+    setIsGeneratingDesign(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${apiBaseUrl}/design/schematics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          spec: result.spec,
+          listingId: parcelDetail.listing.listingId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+
+      setDesignOptions(designGenerationResponseSchema.parse(await response.json()));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not generate schematic options.");
+    } finally {
+      setIsGeneratingDesign(false);
     }
   }
 
@@ -421,6 +461,39 @@ export function IntakeForm() {
                   Confidence: {finding.confidence} · Professional verification:{" "}
                   {finding.professionalVerificationRequired ? "required" : "not required"}
                 </p>
+              </article>
+            ))}
+          </div>
+          <button type="button" onClick={generateSchematics} disabled={isGeneratingDesign}>
+            {isGeneratingDesign ? "Generating..." : "Generate Schematic Options"}
+          </button>
+        </section>
+      ) : null}
+
+      {designOptions ? (
+        <section className="design-panel">
+          <h3>Schematic Options</h3>
+          <p className="section-address">{designOptions.listing.address}</p>
+          {designOptions.warnings.map((warning) => (
+            <p className="warning" key={warning}>
+              {warning}
+            </p>
+          ))}
+          <div className="finding-list">
+            {designOptions.options.map((option) => (
+              <article className="finding-card" key={option.optionId}>
+                <div className="result-card-header">
+                  <strong>{option.name}</strong>
+                  <span>{option.strategy.replaceAll("_", " ")}</span>
+                </div>
+                <p>
+                  {option.targetBuildingSqft.toLocaleString()} sqft · {option.units} unit
+                  {option.units === 1 ? "" : "s"}
+                </p>
+                {option.assumptions.map((assumption) => (
+                  <p key={assumption}>{assumption}</p>
+                ))}
+                <p>{option.complianceFindings.length} feasibility flags carried forward.</p>
               </article>
             ))}
           </div>
