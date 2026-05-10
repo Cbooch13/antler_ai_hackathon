@@ -34,6 +34,10 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
     )
     assert all(option.floor_plans[0].scale_assumption.startswith("Concept scale") for option in options)
     assert all(option.floor_plans[0].visual_exports[0].format == "svg" for option in options)
+    svg = options[0].floor_plans[0].visual_exports[0].content
+    assert 'class="door"' in svg
+    assert 'class="fixture"' in svg or 'class="furniture"' in svg
+    assert 'fill: #d8eadf' not in svg
 
     second_run = SchematicDesignAgent().generate(
         SchematicAgentInput(spec=spec, warning_findings=[])
@@ -123,6 +127,10 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
             check.code == "room_overlap" and check.status == "fails"
             for check in plan.quality_report.checks
         )
+        svg = plan.visual_exports[0].content
+        assert 'class="door"' in svg
+        assert 'class="counter"' in svg or 'class="fixture"' in svg
+        assert 'fill: #d8eadf' not in svg
 
 
 def _llm_payload(include_required_program: bool) -> dict:

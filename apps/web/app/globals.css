@@ -360,78 +360,17 @@ span,
   border-top: 1px solid #d9ddd5;
 }
 
-.floor-plan-grid {
+.floor-plan-export {
   width: 100%;
-  aspect-ratio: 16 / 10;
-  min-height: 220px;
+  overflow: auto;
   border: 1px solid #b9c1bb;
-  background: #f5f4ee;
+  background: #ffffff;
 }
 
-.floor-room rect {
-  stroke: rgba(31, 41, 51, 0.26);
-  stroke-width: 0.35;
-}
-
-.floor-room text {
-  color: #1f2933;
-  fill: #1f2933;
-  font-size: 3px;
-  font-weight: 800;
-  pointer-events: none;
-  text-align: center;
-  text-anchor: middle;
-}
-
-.floor-room text + text {
-  fill: #5c6a70;
-  font-size: 2.6px;
-  font-weight: 700;
-}
-
-.floor-room-living rect,
-.floor-room-entry rect {
-  fill: #d8eadf;
-}
-
-.floor-room-kitchen rect,
-.floor-room-service rect {
-  fill: #e9dfc7;
-}
-
-.floor-room-bedroom rect,
-.floor-room-flex rect {
-  fill: #dbe4ef;
-}
-
-.floor-room-bath rect {
-  fill: #e8d7dc;
-}
-
-.floor-room-unit rect,
-.floor-room-circulation rect {
-  fill: #d8e7e8;
-}
-
-.floor-wall {
-  stroke: #25363d;
-  stroke-linecap: square;
-  stroke-width: 0.7;
-}
-
-.floor-wall-exterior {
-  stroke-width: 1.6;
-}
-
-.floor-opening {
-  fill: #ffffff;
-  stroke: #255f5a;
-  stroke-width: 0.35;
-}
-
-.floor-opening-window {
-  fill: #cfe7f0;
-  stroke: #2f6f69;
+.floor-plan-export svg {
+  display: block;
+  width: 100%;
+  height: auto;
 }
 
 .quality-report {

@@ -1485,71 +1485,215 @@ def _svg_export(
     openings: list[FloorPlanOpening],
     scale_assumption: str,
 ) -> str:
-    scale = 8
-    svg_width = 100 * scale
-    svg_height = 118 * scale
-    room_markup = "\n".join(_svg_room(room, scale) for room in rooms)
+    scale = 7.2
+    margin_x = 56
+    margin_y = 92
+    svg_width = 100 * scale + margin_x * 2
+    svg_height = 100 * scale + margin_y + 72
+    room_label_markup = "\n".join(_svg_room_label(room, scale) for room in rooms)
+    fixture_markup = "\n".join(_svg_room_symbols(room, scale) for room in rooms)
     wall_markup = "\n".join(_svg_wall(wall, scale) for wall in walls)
     opening_markup = "\n".join(_svg_opening(opening, scale) for opening in openings)
+    door_markup = "\n".join(_svg_room_door(room, scale) for room in rooms if room.category != "circulation")
     escaped_title = escape(title)
     escaped_scale = escape(scale_assumption)
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="{svg_height}" viewBox="0 0 {svg_width} {svg_height}" role="img" aria-label="{escaped_title}">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width:.0f}" height="{svg_height:.0f}" viewBox="0 0 {svg_width:.0f} {svg_height:.0f}" role="img" aria-label="{escaped_title}">
   <style>
-    .label {{ font: 12px Arial, sans-serif; fill: #1f2933; font-weight: 700; }}
-    .small {{ font: 10px Arial, sans-serif; fill: #5c6a70; }}
-    .room {{ stroke: #47545a; stroke-width: 1; }}
-    .living {{ fill: #d8eadf; }}
-    .entry {{ fill: #d8eadf; }}
-    .kitchen {{ fill: #e9dfc7; }}
-    .service {{ fill: #e9dfc7; }}
-    .bedroom {{ fill: #dbe4ef; }}
-    .flex {{ fill: #dbe4ef; }}
-    .bath {{ fill: #e8d7dc; }}
-    .unit {{ fill: #d8e7e8; }}
-    .circulation {{ fill: #d8e7e8; }}
-    .wall {{ stroke: #25363d; stroke-linecap: square; }}
+    .title {{ font: 18px Arial, sans-serif; fill: #111827; font-weight: 700; }}
+    .small {{ font: 10px Arial, sans-serif; fill: #4b5563; }}
+    .room-label {{ font: 10px Arial, sans-serif; fill: #111827; font-weight: 700; letter-spacing: 0.6px; }}
+    .room-dims {{ font: 8px Arial, sans-serif; fill: #6b7280; }}
+    .wall {{ stroke: #111827; stroke-linecap: square; fill: none; }}
     .exterior {{ stroke-width: 5; }}
-    .interior {{ stroke-width: 2; }}
-    .opening {{ fill: #ffffff; stroke: #255f5a; stroke-width: 1; }}
+    .interior {{ stroke-width: 2.2; }}
+    .opening {{ fill: #ffffff; stroke: #111827; stroke-width: 1.2; }}
+    .door {{ stroke: #111827; stroke-width: 1.2; fill: none; }}
+    .fixture {{ stroke: #6b7280; stroke-width: 1; fill: none; }}
+    .furniture {{ stroke: #9ca3af; stroke-width: 1; fill: none; }}
+    .counter {{ stroke: #4b5563; stroke-width: 1.2; fill: #f9fafb; }}
   </style>
-  <rect x="0" y="0" width="{svg_width}" height="{svg_height}" fill="#f5f4ee"/>
-  <text x="16" y="24" class="label">{escaped_title}</text>
-  <text x="16" y="42" class="small">{round(total_sqft):,} sqft | {round(width_ft, 1)} ft x {round(depth_ft, 1)} ft footprint</text>
-  <text x="16" y="58" class="small">{escaped_scale}</text>
-  <g transform="translate(0 100)">
-    {room_markup}
-    {wall_markup}
+  <rect x="0" y="0" width="{svg_width:.0f}" height="{svg_height:.0f}" fill="#ffffff"/>
+  <text x="24" y="30" class="title">{escaped_title}</text>
+  <text x="24" y="50" class="small">{round(total_sqft):,} sqft | {round(width_ft, 1)} ft x {round(depth_ft, 1)} ft footprint</text>
+  <text x="24" y="66" class="small">{escaped_scale}</text>
+  <g transform="translate({margin_x} {margin_y})">
+    <rect x="0" y="0" width="{100 * scale:.1f}" height="{100 * scale:.1f}" fill="#ffffff"/>
+    {fixture_markup}
+    {door_markup}
     {opening_markup}
+    {wall_markup}
+    {room_label_markup}
   </g>
 </svg>"""
 
 
-def _svg_room(room: FloorPlanRoom, scale: int) -> str:
+def _svg_room_label(room: FloorPlanRoom, scale: float) -> str:
     x = room.x * scale
     y = room.y * scale
     width = room.width * scale
     height = room.height * scale
-    label_y = y + min(height / 2, 26)
+    label_y = y + height / 2 - 3
     return (
-        f'<g><rect class="room {escape(room.category)}" x="{x:.1f}" y="{y:.1f}" '
-        f'width="{width:.1f}" height="{height:.1f}" rx="2"/>'
-        f'<text class="label" x="{x + width / 2:.1f}" y="{label_y:.1f}" text-anchor="middle">{escape(room.name)}</text>'
-        f'<text class="small" x="{x + width / 2:.1f}" y="{label_y + 14:.1f}" text-anchor="middle">{round(room.width_ft, 1)} ft x {round(room.depth_ft, 1)} ft</text>'
-        f'<text class="small" x="{x + width / 2:.1f}" y="{label_y + 27:.1f}" text-anchor="middle">{round(room.estimated_sqft):,} sf</text></g>'
+        f'<g><text class="room-label" x="{x + width / 2:.1f}" y="{label_y:.1f}" text-anchor="middle">{escape(_short_room_label(room.name))}</text>'
+        f'<text class="room-dims" x="{x + width / 2:.1f}" y="{label_y + 12:.1f}" text-anchor="middle">{round(room.width_ft, 1)} ft x {round(room.depth_ft, 1)} ft</text></g>'
     )
 
 
-def _svg_wall(wall: FloorPlanWall, scale: int) -> str:
+def _svg_wall(wall: FloorPlanWall, scale: float) -> str:
     return (
         f'<line class="wall {escape(wall.wall_type)}" x1="{wall.x1 * scale:.1f}" '
         f'y1="{wall.y1 * scale:.1f}" x2="{wall.x2 * scale:.1f}" y2="{wall.y2 * scale:.1f}"/>'
     )
 
 
-def _svg_opening(opening: FloorPlanOpening, scale: int) -> str:
-    width = opening.width * scale if opening.orientation == "horizontal" else 10
-    height = 10 if opening.orientation == "horizontal" else opening.width * scale
+def _svg_opening(opening: FloorPlanOpening, scale: float) -> str:
+    if opening.opening_type == "door":
+        return _svg_exterior_door(opening, scale)
+    width = opening.width * scale if opening.orientation == "horizontal" else 8
+    height = 8 if opening.orientation == "horizontal" else opening.width * scale
     return (
         f'<rect class="opening" x="{opening.x * scale:.1f}" y="{opening.y * scale:.1f}" '
         f'width="{width:.1f}" height="{height:.1f}"/>'
     )
+
+
+def _svg_exterior_door(opening: FloorPlanOpening, scale: float) -> str:
+    x = opening.x * scale
+    y = opening.y * scale
+    width = opening.width * scale
+    if opening.orientation == "vertical":
+        return (
+            f'<g><line class="door" x1="{x:.1f}" y1="{y:.1f}" x2="{x:.1f}" y2="{y + width:.1f}"/>'
+            f'<path class="door" d="M {x:.1f} {y:.1f} A {width:.1f} {width:.1f} 0 0 1 {x + width:.1f} {y + width:.1f}"/></g>'
+        )
+    return (
+        f'<g><line class="door" x1="{x:.1f}" y1="{y:.1f}" x2="{x + width:.1f}" y2="{y:.1f}"/>'
+        f'<path class="door" d="M {x:.1f} {y:.1f} A {width:.1f} {width:.1f} 0 0 1 {x + width:.1f} {y + width:.1f}"/></g>'
+    )
+
+
+def _svg_room_door(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale
+    y = room.y * scale
+    width = room.width * scale
+    height = room.height * scale
+    door = min(30, max(18, min(width, height) * 0.35))
+    if room.category in {"entry", "living", "kitchen", "unit"}:
+        door_x = x + max(8, min(width - door - 4, width * 0.12))
+        return (
+            f'<g><line class="door" x1="{door_x:.1f}" y1="{y + height:.1f}" x2="{door_x + door:.1f}" y2="{y + height:.1f}"/>'
+            f'<path class="door" d="M {door_x:.1f} {y + height:.1f} A {door:.1f} {door:.1f} 0 0 0 {door_x + door:.1f} {y + height - door:.1f}"/></g>'
+        )
+    door_y = y + max(8, min(height - door - 4, height * 0.18))
+    return (
+        f'<g><line class="door" x1="{x:.1f}" y1="{door_y:.1f}" x2="{x:.1f}" y2="{door_y + door:.1f}"/>'
+        f'<path class="door" d="M {x:.1f} {door_y:.1f} A {door:.1f} {door:.1f} 0 0 1 {x + door:.1f} {door_y + door:.1f}"/></g>'
+    )
+
+
+def _svg_room_symbols(room: FloorPlanRoom, scale: float) -> str:
+    if room.category == "bedroom":
+        return _svg_bed(room, scale)
+    if room.category == "bath":
+        return _svg_bath_fixtures(room, scale)
+    if room.category == "kitchen":
+        return _svg_kitchen_fixtures(room, scale)
+    if room.category == "living":
+        return _svg_living_furniture(room, scale)
+    if room.category == "service":
+        return _svg_service_symbols(room, scale)
+    if room.category == "unit":
+        return _svg_unit_furniture(room, scale)
+    return ""
+
+
+def _svg_bed(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale + 10
+    y = room.y * scale + 10
+    width = min(room.width * scale - 20, 84)
+    height = min(room.height * scale - 18, 58)
+    if width < 24 or height < 24:
+        return ""
+    pillow_w = width * 0.32
+    return (
+        f'<g class="furniture"><rect x="{x:.1f}" y="{y:.1f}" width="{width:.1f}" height="{height:.1f}"/>'
+        f'<rect x="{x + 5:.1f}" y="{y + 5:.1f}" width="{pillow_w:.1f}" height="{height * 0.28:.1f}"/>'
+        f'<rect x="{x + width - pillow_w - 5:.1f}" y="{y + 5:.1f}" width="{pillow_w:.1f}" height="{height * 0.28:.1f}"/></g>'
+    )
+
+
+def _svg_bath_fixtures(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale + 8
+    y = room.y * scale + 8
+    width = max(24, room.width * scale - 16)
+    tub_w = min(width, 56)
+    return (
+        f'<g class="fixture"><rect x="{x:.1f}" y="{y:.1f}" width="{tub_w:.1f}" height="20" rx="4"/>'
+        f'<circle cx="{x + 13:.1f}" cy="{y + 42:.1f}" r="8"/>'
+        f'<rect x="{x + 30:.1f}" y="{y + 34:.1f}" width="18" height="16"/></g>'
+    )
+
+
+def _svg_kitchen_fixtures(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale + 8
+    y = room.y * scale + 8
+    width = max(30, room.width * scale - 16)
+    height = max(28, room.height * scale - 16)
+    island_w = min(width * 0.55, 62)
+    return (
+        f'<g><rect class="counter" x="{x:.1f}" y="{y:.1f}" width="{width:.1f}" height="16"/>'
+        f'<rect class="counter" x="{x + width - 18:.1f}" y="{y:.1f}" width="18" height="{height:.1f}"/>'
+        f'<rect class="counter" x="{x + width * 0.25:.1f}" y="{y + height * 0.5:.1f}" width="{island_w:.1f}" height="18"/>'
+        f'<circle class="fixture" cx="{x + width - 9:.1f}" cy="{y + 10:.1f}" r="4"/>'
+        f'<circle class="fixture" cx="{x + width - 9:.1f}" cy="{y + 24:.1f}" r="4"/></g>'
+    )
+
+
+def _svg_living_furniture(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale + room.width * scale * 0.24
+    y = room.y * scale + room.height * scale * 0.35
+    sofa_w = min(room.width * scale * 0.42, 90)
+    return (
+        f'<g class="furniture"><rect x="{x:.1f}" y="{y:.1f}" width="{sofa_w:.1f}" height="24"/>'
+        f'<rect x="{x + sofa_w * 0.2:.1f}" y="{y + 42:.1f}" width="{sofa_w * 0.55:.1f}" height="18"/>'
+        f'<rect x="{x - 36:.1f}" y="{y + 34:.1f}" width="26" height="26" transform="rotate(-25 {x - 23:.1f} {y + 47:.1f})"/></g>'
+    )
+
+
+def _svg_service_symbols(room: FloorPlanRoom, scale: float) -> str:
+    label = f"{room.name} {room.room_id}".lower()
+    if "laundry" not in label and "mechanical" not in label:
+        return ""
+    x = room.x * scale + 8
+    y = room.y * scale + room.height * scale - 42
+    return (
+        f'<g class="fixture"><rect x="{x:.1f}" y="{y:.1f}" width="24" height="28"/>'
+        f'<rect x="{x + 30:.1f}" y="{y:.1f}" width="24" height="28"/>'
+        f'<circle cx="{x + 12:.1f}" cy="{y + 14:.1f}" r="7"/>'
+        f'<circle cx="{x + 42:.1f}" cy="{y + 14:.1f}" r="7"/></g>'
+    )
+
+
+def _svg_unit_furniture(room: FloorPlanRoom, scale: float) -> str:
+    x = room.x * scale + 10
+    y = room.y * scale + 10
+    return (
+        f'<g class="furniture"><rect x="{x:.1f}" y="{y:.1f}" width="58" height="30"/>'
+        f'<rect x="{x + 76:.1f}" y="{y:.1f}" width="54" height="18"/>'
+        f'<rect x="{x + 76:.1f}" y="{y + 28:.1f}" width="42" height="16"/></g>'
+    )
+
+
+def _short_room_label(name: str) -> str:
+    replacements = {
+        "Upper unit ": "",
+        "Lower unit ": "",
+        " / sleep": "",
+        " / mechanical": "",
+        "Laundry / pantry": "Laundry",
+        "Living / dining": "Living",
+    }
+    label = name
+    for before, after in replacements.items():
+        label = label.replace(before, after)
+    return label.upper()

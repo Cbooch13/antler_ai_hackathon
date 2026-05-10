@@ -12,13 +12,13 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6H - Structured Geometry Refiner**.
+Current implementation target: **Stage 6I - Architectural Plan Renderer**.
 
-Stage 6H provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, deterministic floor-plan quality reports, OpenAI revision-loop feedback, a structured geometry refiner for LLM plans, room-boundary wall generation, and tests. Future stages should be implemented only after review.
+Stage 6I provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, architectural-style SVG plan renderings, deterministic floor-plan quality reports, OpenAI revision-loop feedback, a structured geometry refiner for LLM plans, room-boundary wall generation, door/window/furniture/fixture symbols, and tests. Future stages should be implemented only after review.
 
-Next planning target: **Stage 6I - Adjacency Graph And Circulation Solver**.
+Next planning target: **Stage 6J - Adjacency Graph And Circulation Solver**.
 
-Stage 6I should add explicit adjacency graph contracts and circulation-path validation before rendering.
+Stage 6J should add explicit adjacency graph contracts and circulation-path validation before rendering.
 
 Each stage must end with:
 
@@ -97,7 +97,7 @@ curl -X POST "http://127.0.0.1:8000/compliance/evaluate" \
   -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"listingId":"kaggle-austin-001"}'
 ```
 
-Stage 6H schematic options endpoint:
+Stage 6I schematic options endpoint:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/design/schematics" \

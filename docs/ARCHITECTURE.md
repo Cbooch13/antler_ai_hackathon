@@ -189,9 +189,13 @@ The local generator remains a single-pass fallback so the app can run without an
 
 Stage 6H replaces the OpenAI path's equal-cell room placement with a category-aware geometry refiner. The refiner groups LLM-proposed rooms into public, circulation, private, wet-core, and unit zones, reconciles each room's displayed dimensions and area to the floor footprint, and generates interior wall lines from actual room boundaries. This produces more coherent SVG plans while preserving deterministic quality checks and the revision loop.
 
-## Stage 6I Agentic Floor-Plan Pipeline
+## Stage 6I Architectural Plan Renderer
 
-Stage 6I should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6I changes the visual output from colored zoning blocks to an architectural-style SVG. The renderer uses a white plan background, wall line weights, door swings, window openings, room labels, and conceptual furniture/fixture symbols for beds, baths, kitchens, living rooms, laundry, and unit rooms. The website preview renders this generated SVG directly instead of rebuilding a colored block plan in React.
+
+## Stage 6J Agentic Floor-Plan Pipeline
+
+Stage 6J should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata
