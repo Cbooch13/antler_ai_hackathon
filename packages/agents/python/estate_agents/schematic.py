@@ -152,7 +152,7 @@ class SchematicDesignAgent:
             )
             sqft_delta = round(total_sqft - sum(room.estimated_sqft for room in rooms), 2)
 
-        walls = _walls()
+        walls = _walls_from_rooms(rooms)
         openings = self._openings(strategy)
         quality_report = _quality_report(
             rooms=rooms,
@@ -608,7 +608,12 @@ def _floor_from_llm(
     rooms = _rooms_from_llm_rooms(floor_payload["rooms"], floor_sqft)
     footprint_width_ft = max(sum(room.width_ft for room in rooms[:3]), math.sqrt(floor_sqft * 1.5))
     footprint_depth_ft = floor_sqft / footprint_width_ft
-    rooms = _assign_llm_room_positions(rooms)
+    rooms = _refine_llm_room_geometry(
+        rooms=rooms,
+        total_sqft=floor_sqft,
+        footprint_width_ft=footprint_width_ft,
+        footprint_depth_ft=footprint_depth_ft,
+    )
     sqft_delta = round(floor_sqft - sum(room.estimated_sqft for room in rooms), 2)
     if rooms and abs(sqft_delta) >= 0.01:
         rooms[-1] = rooms[-1].model_copy(
@@ -619,7 +624,7 @@ def _floor_from_llm(
         f"OpenAI concept scale: 1 SVG plan unit = {footprint_width_ft / 100:.2f} ft horizontally "
         f"and {footprint_depth_ft / 100:.2f} ft vertically; room dimensions are model-proposed and rounded."
     )
-    walls = _walls()
+    walls = _walls_from_rooms(rooms)
     openings = _openings_for_strategy(strategy)
     quality_report = _quality_report(
         rooms=rooms,
@@ -706,26 +711,240 @@ def _rooms_from_llm_rooms(
     ]
 
 
-def _assign_llm_room_positions(rooms: list[FloorPlanRoom]) -> list[FloorPlanRoom]:
-    columns = 3
-    rows = math.ceil(len(rooms) / columns)
-    cell_width = 100 / columns
-    cell_height = 100 / max(1, rows)
-    positioned = []
+def _refine_llm_room_geometry(
+    rooms: list[FloorPlanRoom],
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> list[FloorPlanRoom]:
+    unit_rooms = [room for room in rooms if _is_unit_room(room)]
+    wet_rooms = [
+        room
+        for room in rooms
+        if room not in unit_rooms and room.category in {"bath", "service"}
+    ]
+    circulation_rooms = [
+        room
+        for room in rooms
+        if room not in unit_rooms and room not in wet_rooms and room.category == "circulation"
+    ]
+    public_rooms = [
+        room
+        for room in rooms
+        if room not in unit_rooms and room not in wet_rooms and room not in circulation_rooms and room.category in {"entry", "living", "kitchen"}
+    ]
+    private_rooms = [
+        room
+        for room in rooms
+        if room not in unit_rooms and room not in wet_rooms and room not in circulation_rooms and room not in public_rooms
+    ]
+
+    unit_h = 24 if unit_rooms else 0
+    public_h = 32 if public_rooms else 0
+    hall_h = 12 if circulation_rooms else 0
+    private_h = max(0, 100 - unit_h - public_h - hall_h)
+    main_w = 78 if wet_rooms else 100
+    refined: list[FloorPlanRoom] = []
+
+    if public_rooms:
+        refined.extend(
+            _position_row(
+                public_rooms,
+                x=0,
+                y=0,
+                width=main_w,
+                height=public_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+    if circulation_rooms:
+        refined.extend(
+            _position_row(
+                circulation_rooms,
+                x=0,
+                y=public_h,
+                width=main_w,
+                height=hall_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+    if private_rooms:
+        refined.extend(
+            _position_grid(
+                private_rooms,
+                x=0,
+                y=public_h + hall_h,
+                width=main_w,
+                height=private_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+    if wet_rooms:
+        refined.extend(
+            _position_column(
+                wet_rooms,
+                x=main_w,
+                y=0,
+                width=100 - main_w,
+                height=100 - unit_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+    if unit_rooms:
+        refined.extend(
+            _position_row(
+                unit_rooms,
+                x=0,
+                y=100 - unit_h,
+                width=100,
+                height=unit_h,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+
+    room_by_id = {room.room_id: room for room in refined}
+    return [room_by_id.get(room.room_id, room) for room in rooms]
+
+
+def _is_unit_room(room: FloorPlanRoom) -> bool:
+    label = f"{room.room_id} {room.name}".lower()
+    return room.category == "unit" or "adu" in label or "second unit" in label
+
+
+def _position_row(
+    rooms: list[FloorPlanRoom],
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> list[FloorPlanRoom]:
+    total_area = sum(room.estimated_sqft for room in rooms) or len(rooms)
+    cursor = x
+    positioned: list[FloorPlanRoom] = []
     for index, room in enumerate(rooms):
-        column = index % columns
-        row = index // columns
+        if index == len(rooms) - 1:
+            room_width = x + width - cursor
+        else:
+            room_width = width * room.estimated_sqft / total_area
         positioned.append(
-            room.model_copy(
-                update={
-                    "x": round(column * cell_width, 2),
-                    "y": round(row * cell_height, 2),
-                    "width": round(cell_width, 2),
-                    "height": round(cell_height, 2),
-                }
+            _room_with_geometry(
+                room=room,
+                x=cursor,
+                y=y,
+                width=room_width,
+                height=height,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+        cursor += room_width
+    return positioned
+
+
+def _position_column(
+    rooms: list[FloorPlanRoom],
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> list[FloorPlanRoom]:
+    total_area = sum(room.estimated_sqft for room in rooms) or len(rooms)
+    cursor = y
+    positioned: list[FloorPlanRoom] = []
+    for index, room in enumerate(rooms):
+        if index == len(rooms) - 1:
+            room_height = y + height - cursor
+        else:
+            room_height = height * room.estimated_sqft / total_area
+        positioned.append(
+            _room_with_geometry(
+                room=room,
+                x=x,
+                y=cursor,
+                width=width,
+                height=room_height,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
+            )
+        )
+        cursor += room_height
+    return positioned
+
+
+def _position_grid(
+    rooms: list[FloorPlanRoom],
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> list[FloorPlanRoom]:
+    if not rooms:
+        return []
+    rows = 2 if len(rooms) > 2 and height >= 24 else 1
+    row_height = height / rows
+    positioned: list[FloorPlanRoom] = []
+    for row_index in range(rows):
+        row_rooms = rooms[row_index::rows]
+        positioned.extend(
+            _position_row(
+                row_rooms,
+                x=x,
+                y=y + row_index * row_height,
+                width=width,
+                height=row_height,
+                total_sqft=total_sqft,
+                footprint_width_ft=footprint_width_ft,
+                footprint_depth_ft=footprint_depth_ft,
             )
         )
     return positioned
+
+
+def _room_with_geometry(
+    room: FloorPlanRoom,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> FloorPlanRoom:
+    bounded_width = max(1, min(100 - x, width))
+    bounded_height = max(1, min(100 - y, height))
+    estimated_sqft = total_sqft * (bounded_width * bounded_height / 10_000)
+    return room.model_copy(
+        update={
+            "estimated_sqft": round(estimated_sqft, 2),
+            "width_ft": round(footprint_width_ft * bounded_width / 100 * 2) / 2,
+            "depth_ft": round(footprint_depth_ft * bounded_height / 100 * 2) / 2,
+            "x": round(x, 2),
+            "y": round(y, 2),
+            "width": round(bounded_width, 2),
+            "height": round(bounded_height, 2),
+        }
+    )
 
 
 def _openings_for_strategy(strategy: str) -> list[FloorPlanOpening]:
@@ -893,7 +1112,7 @@ def _quality_report(
         checks=checks,
         review_notes=[
             "Quality checks are deterministic MVP heuristics for product review, not professional architectural validation.",
-            "Stage 6F should use this report as the tool feedback loop for revising future LLM layout JSON.",
+            "Stage 6H uses this report with the OpenAI revision loop and structured geometry refiner.",
         ],
     )
 
@@ -1186,16 +1405,45 @@ def _solar_check(openings: list[FloorPlanOpening], strategy: str) -> FloorPlanQu
     )
 
 
-def _walls() -> list[FloorPlanWall]:
-    return [
+def _walls_from_rooms(rooms: list[FloorPlanRoom]) -> list[FloorPlanWall]:
+    walls = [
         _wall("north", 0, 0, 100, 0, "exterior"),
         _wall("east", 100, 0, 100, 100, "exterior"),
         _wall("south", 100, 100, 0, 100, "exterior"),
         _wall("west", 0, 100, 0, 0, "exterior"),
-        _wall("public-private", 0, 34, 100, 34),
-        _wall("service-core", 79, 0, 79, 100),
-        _wall("unit-separation", 0, 74, 100, 74),
     ]
+    unit_y_values = [room.y for room in rooms if _is_unit_room(room)]
+    if unit_y_values:
+        unit_y = min(unit_y_values)
+        walls.append(_wall("unit-separation", 0, unit_y, 100, unit_y))
+
+    seen: set[tuple[float, float, float, float]] = set()
+    for room in rooms:
+        candidates = [
+            (room.x, room.y, room.x + room.width, room.y),
+            (room.x + room.width, room.y, room.x + room.width, room.y + room.height),
+            (room.x + room.width, room.y + room.height, room.x, room.y + room.height),
+            (room.x, room.y + room.height, room.x, room.y),
+        ]
+        for x1, y1, x2, y2 in candidates:
+            if _is_exterior_segment(x1, y1, x2, y2):
+                continue
+            key = (round(x1, 2), round(y1, 2), round(x2, 2), round(y2, 2))
+            reverse_key = (key[2], key[3], key[0], key[1])
+            if key in seen or reverse_key in seen:
+                continue
+            seen.add(key)
+            walls.append(_wall(f"room-wall-{len(walls)}", key[0], key[1], key[2], key[3]))
+    return walls
+
+
+def _is_exterior_segment(x1: float, y1: float, x2: float, y2: float) -> bool:
+    return (
+        (abs(y1) < 0.01 and abs(y2) < 0.01)
+        or (abs(y1 - 100) < 0.01 and abs(y2 - 100) < 0.01)
+        or (abs(x1) < 0.01 and abs(x2) < 0.01)
+        or (abs(x1 - 100) < 0.01 and abs(x2 - 100) < 0.01)
+    )
 
 
 def _wall(

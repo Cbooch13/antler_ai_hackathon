@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 6G establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, advisory compliance feasibility, generative schematic-agent planning, conceptual architectural floor plans, deterministic floor-plan quality validation, and OpenAI revision-loop feedback:
+Stage 6H establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, advisory compliance feasibility, generative schematic-agent planning, conceptual architectural floor plans, deterministic floor-plan quality validation, OpenAI revision-loop feedback, and structured geometry refinement:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -35,6 +35,8 @@ Stage 6G establishes the system foundation, the first user-facing intake path, o
 - Website architectural-style plan views with rooms, dimensions, scale assumptions, walls, openings, room schedules, and SVG visual exports.
 - Deterministic floor-plan quality reports covering area reconciliation, footprint fit, bounds, overlaps, program fit, room dimensions, circulation, openings, unit separation, and solar-orientation assumptions.
 - OpenAI schematic revision loop that returns quality-check failures/warnings to the planner for up to `LLM_SCHEMATIC_MAX_ATTEMPTS` attempts, then returns the first passing option set or the best advisory option set.
+- Category-aware geometry refiner that places LLM-proposed rooms into public, circulation, private, wet-core, and unit zones before rendering.
+- Interior wall generation from actual room boundaries instead of generic placeholder wall lines.
 
 ## Source Priority
 

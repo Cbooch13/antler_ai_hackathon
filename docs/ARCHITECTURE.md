@@ -185,9 +185,13 @@ Stage 6G adds the first correction loop around the OpenAI schematic planner. Whe
 
 The local generator remains a single-pass fallback so the app can run without an API key.
 
-## Stage 6H Agentic Floor-Plan Pipeline
+## Stage 6H Structured Geometry Refiner
 
-Stage 6H should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6H replaces the OpenAI path's equal-cell room placement with a category-aware geometry refiner. The refiner groups LLM-proposed rooms into public, circulation, private, wet-core, and unit zones, reconciles each room's displayed dimensions and area to the floor footprint, and generates interior wall lines from actual room boundaries. This produces more coherent SVG plans while preserving deterministic quality checks and the revision loop.
+
+## Stage 6I Agentic Floor-Plan Pipeline
+
+Stage 6I should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata

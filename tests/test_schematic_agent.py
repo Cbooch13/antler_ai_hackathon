@@ -112,6 +112,17 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
         any("revision loop attempt 2 of 3" in assumption for assumption in option.assumptions)
         for option in options
     )
+    for option in options:
+        plan = option.floor_plans[0]
+        widths = {room.width for room in plan.rooms}
+        wall_ids = {wall.wall_id for wall in plan.walls}
+        assert len(widths) > 3
+        assert any(wall_id.startswith("room-wall-") for wall_id in wall_ids)
+        assert "public-private" not in wall_ids
+        assert not any(
+            check.code == "room_overlap" and check.status == "fails"
+            for check in plan.quality_report.checks
+        )
 
 
 def _llm_payload(include_required_program: bool) -> dict:
