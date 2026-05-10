@@ -499,23 +499,53 @@ export function IntakeForm() {
                       <strong>{plan.name}</strong>
                       <span>{plan.totalSqft.toLocaleString()} sqft</span>
                     </div>
-                    <div className="floor-plan-grid" aria-label={`${plan.name} conceptual block plan`}>
+                    <svg
+                      className="floor-plan-grid"
+                      aria-label={`${plan.name} conceptual architectural plan`}
+                      viewBox="0 0 100 100"
+                      role="img"
+                    >
                       {plan.rooms.map((room) => (
-                        <div
-                          className={`floor-room floor-room-${room.category}`}
+                        <g
                           key={room.roomId}
-                          style={{
-                            left: `${room.x}%`,
-                            top: `${room.y}%`,
-                            width: `${room.width}%`,
-                            height: `${room.height}%`
-                          }}
-                          title={`${room.name}: ${room.estimatedSqft.toLocaleString()} sqft`}
+                          className={`floor-room floor-room-${room.category}`}
                         >
-                          <span>{room.name}</span>
-                        </div>
+                          <rect
+                            x={room.x}
+                            y={room.y}
+                            width={room.width}
+                            height={room.height}
+                            rx="0.8"
+                          />
+                          <text x={room.x + room.width / 2} y={room.y + room.height / 2 - 1}>
+                            {room.name}
+                          </text>
+                          <text x={room.x + room.width / 2} y={room.y + room.height / 2 + 5}>
+                            {room.estimatedSqft.toLocaleString()} sf
+                          </text>
+                        </g>
                       ))}
-                    </div>
+                      {plan.walls.map((wall) => (
+                        <line
+                          className={`floor-wall floor-wall-${wall.wallType}`}
+                          key={wall.wallId}
+                          x1={wall.x1}
+                          y1={wall.y1}
+                          x2={wall.x2}
+                          y2={wall.y2}
+                        />
+                      ))}
+                      {plan.openings.map((opening) => (
+                        <rect
+                          className={`floor-opening floor-opening-${opening.openingType}`}
+                          key={opening.openingId}
+                          x={opening.x}
+                          y={opening.y}
+                          width={opening.orientation === "horizontal" ? opening.width : 1.4}
+                          height={opening.orientation === "horizontal" ? 1.4 : opening.width}
+                        />
+                      ))}
+                    </svg>
                     <div className="room-list">
                       {plan.rooms.map((room) => (
                         <span key={`${plan.planId}-${room.roomId}`}>

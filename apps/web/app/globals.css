@@ -361,55 +361,77 @@ span,
 }
 
 .floor-plan-grid {
-  position: relative;
   width: 100%;
   aspect-ratio: 16 / 10;
   min-height: 220px;
-  overflow: hidden;
   border: 1px solid #b9c1bb;
-  background: #eef3f1;
+  background: #f5f4ee;
 }
 
-.floor-room {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  padding: 6px;
-  border: 1px solid rgba(31, 41, 51, 0.22);
+.floor-room rect {
+  stroke: rgba(31, 41, 51, 0.26);
+  stroke-width: 0.35;
+}
+
+.floor-room text {
   color: #1f2933;
-  font-size: 0.72rem;
+  fill: #1f2933;
+  font-size: 3px;
   font-weight: 800;
-  line-height: 1.15;
+  pointer-events: none;
   text-align: center;
+  text-anchor: middle;
 }
 
-.floor-room span {
-  color: inherit;
-  font-size: inherit;
+.floor-room text + text {
+  fill: #5c6a70;
+  font-size: 2.6px;
+  font-weight: 700;
 }
 
-.floor-room-living {
-  background: #d8eadf;
+.floor-room-living rect,
+.floor-room-entry rect {
+  fill: #d8eadf;
 }
 
-.floor-room-kitchen,
-.floor-room-service {
-  background: #e9dfc7;
+.floor-room-kitchen rect,
+.floor-room-service rect {
+  fill: #e9dfc7;
 }
 
-.floor-room-bedroom,
-.floor-room-flex {
-  background: #dbe4ef;
+.floor-room-bedroom rect,
+.floor-room-flex rect {
+  fill: #dbe4ef;
 }
 
-.floor-room-bath {
-  background: #e8d7dc;
+.floor-room-bath rect {
+  fill: #e8d7dc;
 }
 
-.floor-room-unit,
-.floor-room-circulation {
-  background: #d8e7e8;
+.floor-room-unit rect,
+.floor-room-circulation rect {
+  fill: #d8e7e8;
+}
+
+.floor-wall {
+  stroke: #25363d;
+  stroke-linecap: square;
+  stroke-width: 0.7;
+}
+
+.floor-wall-exterior {
+  stroke-width: 1.6;
+}
+
+.floor-opening {
+  fill: #ffffff;
+  stroke: #255f5a;
+  stroke-width: 0.35;
+}
+
+.floor-opening-window {
+  fill: #cfe7f0;
+  stroke: #2f6f69;
 }
 
 .room-list {

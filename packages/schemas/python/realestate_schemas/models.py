@@ -261,19 +261,39 @@ class FloorPlanRoom(ContractModel):
     height: float = Field(gt=0, le=100)
 
 
+class FloorPlanWall(ContractModel):
+    wall_id: str = Field(min_length=1)
+    x1: float = Field(ge=0, le=100)
+    y1: float = Field(ge=0, le=100)
+    x2: float = Field(ge=0, le=100)
+    y2: float = Field(ge=0, le=100)
+    wall_type: str = Field(default="interior")
+
+
+class FloorPlanOpening(ContractModel):
+    opening_id: str = Field(min_length=1)
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+    width: float = Field(gt=0, le=100)
+    orientation: str = Field(pattern="^(horizontal|vertical)$")
+    opening_type: str = Field(default="door")
+
+
 class FloorPlan(ContractModel):
     plan_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     level: str = Field(min_length=1)
     total_sqft: PositiveFloat
     rooms: list[FloorPlanRoom] = Field(default_factory=list)
+    walls: list[FloorPlanWall] = Field(default_factory=list)
+    openings: list[FloorPlanOpening] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 
 class DesignOption(ContractModel):
     option_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    strategy: str = Field(description="conservative, balanced, or max_yield")
+    strategy: str = Field(description="human_comfort or space_utilization")
     target_building_sqft: PositiveFloat
     units: PositiveInt
     floor_plans: list[FloorPlan] = Field(default_factory=list)

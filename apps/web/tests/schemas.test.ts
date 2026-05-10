@@ -65,7 +65,7 @@ describe("designGenerationResponseSchema", () => {
         {
           optionId: "schematic-balanced",
           name: "Balanced Program",
-          strategy: "balanced",
+          strategy: "human_comfort",
           targetBuildingSqft: 2200,
           units: 2,
           floorPlans: [
@@ -84,6 +84,26 @@ describe("designGenerationResponseSchema", () => {
                   y: 0,
                   width: 42,
                   height: 38
+                }
+              ],
+              walls: [
+                {
+                  wallId: "north",
+                  x1: 0,
+                  y1: 0,
+                  x2: 100,
+                  y2: 0,
+                  wallType: "exterior"
+                }
+              ],
+              openings: [
+                {
+                  openingId: "front-door",
+                  x: 8,
+                  y: 0,
+                  width: 8,
+                  orientation: "horizontal",
+                  openingType: "door"
                 }
               ],
               notes: ["Conceptual block plan only."]

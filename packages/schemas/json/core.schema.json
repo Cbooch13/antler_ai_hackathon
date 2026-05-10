@@ -226,9 +226,35 @@
         "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
       }
     },
+    "FloorPlanWall": {
+      "type": "object",
+      "required": ["wallId", "x1", "y1", "x2", "y2", "wallType"],
+      "additionalProperties": false,
+      "properties": {
+        "wallId": { "type": "string", "minLength": 1 },
+        "x1": { "type": "number", "minimum": 0, "maximum": 100 },
+        "y1": { "type": "number", "minimum": 0, "maximum": 100 },
+        "x2": { "type": "number", "minimum": 0, "maximum": 100 },
+        "y2": { "type": "number", "minimum": 0, "maximum": 100 },
+        "wallType": { "type": "string", "minLength": 1 }
+      }
+    },
+    "FloorPlanOpening": {
+      "type": "object",
+      "required": ["openingId", "x", "y", "width", "orientation", "openingType"],
+      "additionalProperties": false,
+      "properties": {
+        "openingId": { "type": "string", "minLength": 1 },
+        "x": { "type": "number", "minimum": 0, "maximum": 100 },
+        "y": { "type": "number", "minimum": 0, "maximum": 100 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+        "orientation": { "type": "string", "enum": ["horizontal", "vertical"] },
+        "openingType": { "type": "string", "minLength": 1 }
+      }
+    },
     "FloorPlan": {
       "type": "object",
-      "required": ["planId", "name", "level", "totalSqft", "rooms", "notes"],
+      "required": ["planId", "name", "level", "totalSqft", "rooms", "walls", "openings", "notes"],
       "additionalProperties": false,
       "properties": {
         "planId": { "type": "string", "minLength": 1 },
@@ -238,6 +264,14 @@
         "rooms": {
           "type": "array",
           "items": { "$ref": "#/$defs/FloorPlanRoom" }
+        },
+        "walls": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloorPlanWall" }
+        },
+        "openings": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloorPlanOpening" }
         },
         "notes": {
           "type": "array",

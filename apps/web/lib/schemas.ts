@@ -153,12 +153,32 @@ export const floorPlanRoomSchema = z.object({
   height: z.number().positive().max(100)
 });
 
+export const floorPlanWallSchema = z.object({
+  wallId: z.string().min(1),
+  x1: z.number().min(0).max(100),
+  y1: z.number().min(0).max(100),
+  x2: z.number().min(0).max(100),
+  y2: z.number().min(0).max(100),
+  wallType: z.string().min(1)
+});
+
+export const floorPlanOpeningSchema = z.object({
+  openingId: z.string().min(1),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().positive().max(100),
+  orientation: z.enum(["horizontal", "vertical"]),
+  openingType: z.string().min(1)
+});
+
 export const floorPlanSchema = z.object({
   planId: z.string().min(1),
   name: z.string().min(1),
   level: z.string().min(1),
   totalSqft: z.number().positive(),
   rooms: z.array(floorPlanRoomSchema),
+  walls: z.array(floorPlanWallSchema),
+  openings: z.array(floorPlanOpeningSchema),
   notes: z.array(z.string())
 });
 

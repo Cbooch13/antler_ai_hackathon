@@ -9,7 +9,9 @@ from realestate_schemas import (
     Confidence,
     DesignOption,
     FloorPlan,
+    FloorPlanOpening,
     FloorPlanRoom,
+    FloorPlanWall,
     Listing,
     ListingSourceMode,
     MapContext,
@@ -98,9 +100,13 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "MetricBasis" in schema["$defs"]
     assert "DesignOption" in schema["$defs"]
     assert "FloorPlan" in schema["$defs"]
+    assert "FloorPlanOpening" in schema["$defs"]
     assert "FloorPlanRoom" in schema["$defs"]
+    assert "FloorPlanWall" in schema["$defs"]
     assert "basis" in schema["$defs"]["ComplianceMetric"]["required"]
     assert "floorPlans" in schema["$defs"]["DesignOption"]["required"]
+    assert "walls" in schema["$defs"]["FloorPlan"]["required"]
+    assert "openings" in schema["$defs"]["FloorPlan"]["required"]
 
 
 def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
@@ -179,6 +185,26 @@ def test_design_option_contract_supports_floor_plans() -> None:
                         height=38,
                     )
                 ],
+                walls=[
+                    FloorPlanWall(
+                        wallId="north",
+                        x1=0,
+                        y1=0,
+                        x2=100,
+                        y2=0,
+                        wallType="exterior",
+                    )
+                ],
+                openings=[
+                    FloorPlanOpening(
+                        openingId="front-door",
+                        x=8,
+                        y=0,
+                        width=8,
+                        orientation="horizontal",
+                        openingType="door",
+                    )
+                ],
                 notes=["Conceptual block plan only."],
             )
         ],
@@ -186,6 +212,8 @@ def test_design_option_contract_supports_floor_plans() -> None:
 
     payload = option.model_dump(by_alias=True)
     assert payload["floorPlans"][0]["rooms"][0]["estimatedSqft"] == 484
+    assert payload["floorPlans"][0]["walls"][0]["wallType"] == "exterior"
+    assert payload["floorPlans"][0]["openings"][0]["openingType"] == "door"
 
 
 def test_parcel_detail_contract_supports_missing_official_joins() -> None:
