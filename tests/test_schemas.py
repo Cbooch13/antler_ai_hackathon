@@ -7,6 +7,9 @@ from pydantic import ValidationError
 
 from realestate_schemas import (
     Confidence,
+    DesignOption,
+    FloorPlan,
+    FloorPlanRoom,
     Listing,
     ListingSourceMode,
     MapContext,
@@ -94,7 +97,10 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "ComplianceMetric" in schema["$defs"]
     assert "MetricBasis" in schema["$defs"]
     assert "DesignOption" in schema["$defs"]
+    assert "FloorPlan" in schema["$defs"]
+    assert "FloorPlanRoom" in schema["$defs"]
     assert "basis" in schema["$defs"]["ComplianceMetric"]["required"]
+    assert "floorPlans" in schema["$defs"]["DesignOption"]["required"]
 
 
 def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
@@ -146,6 +152,40 @@ def test_listing_static_source_contract_requires_inventory_flag() -> None:
     assert listing.current_inventory is False
     assert listing.neighborhood == "Hyde Park / Central Austin"
     assert listing.model_dump(by_alias=True)["sourceMode"] == "prototype_static_dataset"
+
+
+def test_design_option_contract_supports_floor_plans() -> None:
+    option = DesignOption(
+        optionId="schematic-balanced",
+        name="Balanced Program",
+        strategy="balanced",
+        targetBuildingSqft=2_200,
+        units=2,
+        floorPlans=[
+            FloorPlan(
+                planId="floor-plan-balanced",
+                name="Balanced Ground Floor",
+                level="Level 1",
+                totalSqft=2_200,
+                rooms=[
+                    FloorPlanRoom(
+                        roomId="living",
+                        name="Living / dining",
+                        category="living",
+                        estimatedSqft=484,
+                        x=0,
+                        y=0,
+                        width=42,
+                        height=38,
+                    )
+                ],
+                notes=["Conceptual block plan only."],
+            )
+        ],
+    )
+
+    payload = option.model_dump(by_alias=True)
+    assert payload["floorPlans"][0]["rooms"][0]["estimatedSqft"] == 484
 
 
 def test_parcel_detail_contract_supports_missing_official_joins() -> None:

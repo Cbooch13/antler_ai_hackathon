@@ -68,6 +68,27 @@ describe("designGenerationResponseSchema", () => {
           strategy: "balanced",
           targetBuildingSqft: 2200,
           units: 2,
+          floorPlans: [
+            {
+              planId: "floor-plan-balanced",
+              name: "Balanced Ground Floor",
+              level: "Level 1",
+              totalSqft: 2200,
+              rooms: [
+                {
+                  roomId: "living",
+                  name: "Living / dining",
+                  category: "living",
+                  estimatedSqft: 484,
+                  x: 0,
+                  y: 0,
+                  width: 42,
+                  height: 38
+                }
+              ],
+              notes: ["Conceptual block plan only."]
+            }
+          ],
           assumptions: ["Tracks the requested program."],
           complianceFindings: []
         }

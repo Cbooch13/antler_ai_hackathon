@@ -250,12 +250,33 @@ class ComplianceEvaluationResponse(ContractModel):
     professional_verification_required: bool = True
 
 
+class FloorPlanRoom(ContractModel):
+    room_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    category: str = Field(min_length=1)
+    estimated_sqft: PositiveFloat
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+    width: float = Field(gt=0, le=100)
+    height: float = Field(gt=0, le=100)
+
+
+class FloorPlan(ContractModel):
+    plan_id: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+    level: str = Field(min_length=1)
+    total_sqft: PositiveFloat
+    rooms: list[FloorPlanRoom] = Field(default_factory=list)
+    notes: list[str] = Field(default_factory=list)
+
+
 class DesignOption(ContractModel):
     option_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     strategy: str = Field(description="conservative, balanced, or max_yield")
     target_building_sqft: PositiveFloat
     units: PositiveInt
+    floor_plans: list[FloorPlan] = Field(default_factory=list)
     assumptions: list[str] = Field(default_factory=list)
     compliance_findings: list[ComplianceFinding] = Field(default_factory=list)
 

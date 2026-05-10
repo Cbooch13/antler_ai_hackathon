@@ -6,7 +6,7 @@ Help a user evaluate Austin lots for a desired residential or commercial build, 
 
 ## MVP Scope
 
-Stage 6 establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, advisory compliance feasibility, and deterministic schematic option generation:
+Stage 6B establishes the system foundation, the first user-facing intake path, official Austin public-data ingestion, MVP lot discovery, selected-lot context, advisory compliance feasibility, deterministic schematic option generation, and conceptual floor plans:
 
 - Monorepo structure for web, API, workers, schemas, rules, integrations, and agents.
 - Shared core data contracts.
@@ -31,6 +31,8 @@ Stage 6 establishes the system foundation, the first user-facing intake path, of
 - Explicit statuses for passes, warnings, unknowns, source limitations, and professional-review requirements.
 - `/design/schematics` API route for conservative, balanced, and max-yield conceptual schematic options.
 - Website schematic-options panel after compliance feasibility has been generated.
+- At least one structured conceptual floor plan per schematic option.
+- Website floor-plan block views and room schedules for each schematic option.
 
 ## Source Priority
 
@@ -126,8 +128,11 @@ Stage 6 schematic options are deterministic planning outputs generated from the 
 - target building square footage
 - unit count
 - assumptions
+- floor plans with rooms, estimated square footage, normalized layout coordinates, and notes
 - carried-forward compliance findings
 - warnings that outputs are conceptual and require professional review
+
+Floor plans are simple deterministic block plans for early product review. They are not measured architectural drawings and do not validate egress, MEP, structural, accessibility, fire, or permit requirements.
 
 Stage 6 does not generate permit-ready architectural drawings, CAD files, renderings, AutoHDR assets, or walkthroughs.
 

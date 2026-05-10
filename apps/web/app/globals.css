@@ -352,6 +352,82 @@ span,
   line-height: 1.4;
 }
 
+.floor-plan {
+  display: grid;
+  gap: 10px;
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #d9ddd5;
+}
+
+.floor-plan-grid {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 10;
+  min-height: 220px;
+  overflow: hidden;
+  border: 1px solid #b9c1bb;
+  background: #eef3f1;
+}
+
+.floor-room {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 6px;
+  border: 1px solid rgba(31, 41, 51, 0.22);
+  color: #1f2933;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.floor-room span {
+  color: inherit;
+  font-size: inherit;
+}
+
+.floor-room-living {
+  background: #d8eadf;
+}
+
+.floor-room-kitchen,
+.floor-room-service {
+  background: #e9dfc7;
+}
+
+.floor-room-bedroom,
+.floor-room-flex {
+  background: #dbe4ef;
+}
+
+.floor-room-bath {
+  background: #e8d7dc;
+}
+
+.floor-room-unit,
+.floor-room-circulation {
+  background: #d8e7e8;
+}
+
+.room-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.room-list span {
+  padding: 5px 7px;
+  border: 1px solid #d9ddd5;
+  border-radius: 4px;
+  color: #42525a;
+  background: #ffffff;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .finding-passes {
   border-left: 4px solid #2f6f69;
 }

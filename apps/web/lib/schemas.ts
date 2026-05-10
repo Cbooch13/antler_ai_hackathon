@@ -142,12 +142,33 @@ export const complianceEvaluationResponseSchema = z.object({
   professionalVerificationRequired: z.boolean()
 });
 
+export const floorPlanRoomSchema = z.object({
+  roomId: z.string().min(1),
+  name: z.string().min(1),
+  category: z.string().min(1),
+  estimatedSqft: z.number().positive(),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().positive().max(100),
+  height: z.number().positive().max(100)
+});
+
+export const floorPlanSchema = z.object({
+  planId: z.string().min(1),
+  name: z.string().min(1),
+  level: z.string().min(1),
+  totalSqft: z.number().positive(),
+  rooms: z.array(floorPlanRoomSchema),
+  notes: z.array(z.string())
+});
+
 export const designOptionSchema = z.object({
   optionId: z.string().min(1),
   name: z.string().min(1),
   strategy: z.string().min(1),
   targetBuildingSqft: z.number().positive(),
   units: z.number().int().positive(),
+  floorPlans: z.array(floorPlanSchema),
   assumptions: z.array(z.string()),
   complianceFindings: z.array(complianceFindingSchema)
 });

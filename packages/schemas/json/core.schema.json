@@ -211,6 +211,40 @@
         "notes": { "type": "string" }
       }
     },
+    "FloorPlanRoom": {
+      "type": "object",
+      "required": ["roomId", "name", "category", "estimatedSqft", "x", "y", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "roomId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "category": { "type": "string", "minLength": 1 },
+        "estimatedSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "x": { "type": "number", "minimum": 0, "maximum": 100 },
+        "y": { "type": "number", "minimum": 0, "maximum": 100 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 }
+      }
+    },
+    "FloorPlan": {
+      "type": "object",
+      "required": ["planId", "name", "level", "totalSqft", "rooms", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "planId": { "type": "string", "minLength": 1 },
+        "name": { "type": "string", "minLength": 1 },
+        "level": { "type": "string", "minLength": 1 },
+        "totalSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "rooms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloorPlanRoom" }
+        },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "DesignOption": {
       "type": "object",
       "required": [
@@ -219,6 +253,7 @@
         "strategy",
         "targetBuildingSqft",
         "units",
+        "floorPlans",
         "assumptions",
         "complianceFindings"
       ],
@@ -229,6 +264,10 @@
         "strategy": { "type": "string" },
         "targetBuildingSqft": { "type": "number", "exclusiveMinimum": 0 },
         "units": { "type": "integer", "minimum": 1 },
+        "floorPlans": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloorPlan" }
+        },
         "assumptions": {
           "type": "array",
           "items": { "type": "string" }

@@ -493,6 +493,41 @@ export function IntakeForm() {
                 {option.assumptions.map((assumption) => (
                   <p key={assumption}>{assumption}</p>
                 ))}
+                {option.floorPlans.map((plan) => (
+                  <div className="floor-plan" key={plan.planId}>
+                    <div className="result-card-header">
+                      <strong>{plan.name}</strong>
+                      <span>{plan.totalSqft.toLocaleString()} sqft</span>
+                    </div>
+                    <div className="floor-plan-grid" aria-label={`${plan.name} conceptual block plan`}>
+                      {plan.rooms.map((room) => (
+                        <div
+                          className={`floor-room floor-room-${room.category}`}
+                          key={room.roomId}
+                          style={{
+                            left: `${room.x}%`,
+                            top: `${room.y}%`,
+                            width: `${room.width}%`,
+                            height: `${room.height}%`
+                          }}
+                          title={`${room.name}: ${room.estimatedSqft.toLocaleString()} sqft`}
+                        >
+                          <span>{room.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="room-list">
+                      {plan.rooms.map((room) => (
+                        <span key={`${plan.planId}-${room.roomId}`}>
+                          {room.name}: {room.estimatedSqft.toLocaleString()} sqft
+                        </span>
+                      ))}
+                    </div>
+                    {plan.notes.map((note) => (
+                      <p key={note}>{note}</p>
+                    ))}
+                  </div>
+                ))}
                 <p>{option.complianceFindings.length} feasibility flags carried forward.</p>
               </article>
             ))}

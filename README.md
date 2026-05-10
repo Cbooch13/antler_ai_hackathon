@@ -12,9 +12,9 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6 - Schematic Options**.
+Current implementation target: **Stage 6B - Schematic Options With Floor Plans**.
 
-Stage 6 provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, deterministic schematic options, and tests. Future stages should be implemented only after review.
+Stage 6B provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, deterministic schematic options with conceptual floor plans, and tests. Future stages should be implemented only after review.
 
 Each stage must end with:
 
@@ -82,7 +82,7 @@ curl -X POST "http://127.0.0.1:8000/compliance/evaluate" \
   -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"listingId":"kaggle-austin-001"}'
 ```
 
-Stage 6 schematic options endpoint:
+Stage 6B schematic options endpoint:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/design/schematics" \

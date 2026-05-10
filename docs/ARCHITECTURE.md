@@ -159,10 +159,12 @@ Design service
   |
   |-- Reuses deterministic compliance response
   |-- Creates conservative, balanced, and max-yield options
+  |-- Adds one conceptual floor plan to each option
+  |-- Uses normalized room coordinates for website block-plan rendering
   |-- Carries forward warning/unknown/failing compliance findings
   |
   v
 DesignGenerationResponse
 ```
 
-Stage 6 is still deterministic and conceptual. It creates option cards for review and later conversational tuning, but it does not create permit drawings, CAD/BIM files, AutoHDR imagery, or walkthrough assets.
+Stage 6B is still deterministic and conceptual. It creates option cards and simple floor-plan block views for review and later conversational tuning, but it does not create permit drawings, measured CAD/BIM files, AutoHDR imagery, or walkthrough assets.
