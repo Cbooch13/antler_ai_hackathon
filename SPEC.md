@@ -135,6 +135,48 @@ Floor plans are generated concept plans for early product review. The LLM or loc
 
 Stage 6 does not generate permit-ready architectural drawings, CAD files, renderings, AutoHDR assets, or walkthroughs.
 
+## Agentic Floor-Plan Roadmap
+
+Stage 6F will move schematic generation toward an agentic, research-backed floor-plan pipeline. The Design Agent should not generate images first. It should generate a structured floor-plan representation that deterministic geometry and validation code can inspect.
+
+The structured representation must include:
+
+- room nodes with type, target square footage, actual square footage, minimum dimensions, privacy zone, wet-room flag, daylight/window needs, and user-requested priority
+- adjacency graph edges with relationship type, required/optional status, and rationale
+- level metadata for single-story, multi-story, ADU, and multi-unit plans
+- wall segments as coordinate pairs with wall type and thickness
+- doors and windows as references to wall segments, with swing/size/orientation metadata where available
+- building-envelope, setback, sun-orientation, circulation, egress-review, and professional-review metadata
+
+The agentic pipeline should use a three-stage pattern:
+
+1. LLM Planner Agent: interpret the natural-language brief, property context, sun orientation, compliance findings, and style goals into structured layout JSON.
+2. Geometry Refinement: convert the layout graph into exact geometry, snap walls to a grid, resolve overlaps, size hallways/rooms, allocate multiple floors, and ensure all requested square footage is accounted for.
+3. Deterministic Rendering: render final geometry to SVG first, then later DXF/Revit-compatible or AutoHDR-ready exports.
+
+The agent loop must call deterministic tools rather than asking the LLM to guess validity:
+
+- constraint checker for area reconciliation, minimum room dimensions, overlapping geometry, wall alignment, door reachability, room connectivity, hallway width, exterior-window access, and second-unit separation
+- compliance checker for carried-forward zoning, setback, coverage, tree, floodplain, WUI, and permit-risk findings
+- solar/context checker for street orientation, likely west/east heat gain, south-facing glazing opportunities, shaded outdoor space, and window-placement recommendations
+- revision loop that returns tool violations to the LLM Planner Agent until the plan passes MVP checks or is marked as infeasible/advisory
+
+Reference datasets for research and evaluation:
+
+- RPLAN: large public residential floor-plan dataset with roughly 80k annotated plans, useful for baseline layout patterns and raster-to-structure experiments.
+- ResPlan: 2025 dataset of 17,000 vector/graph residential plans with room connectivity and geometry-cleaning pipeline; candidate source for graph-native spatial reasoning, subject to license review (`https://www.kaggle.com/datasets/resplan/resplan`).
+- Tell2Design: ACL 2023 dataset pairing 80k+ floor-plan designs with natural-language instructions, useful for instruction-adherence evaluation and language-to-layout prompting (`https://aclanthology.org/2023.acl-long.820/`).
+- DStruct2Design: data-structure-driven floor-plan benchmark using JSON-style floor-plan metadata, numerical constraints, and graph constraints; useful for the internal schema and evaluation style (`https://arxiv.org/abs/2407.15723`).
+- ZURU/AWS text-to-floor-plan case study: useful precedent for evaluating instruction adherence and mathematical/geometric correctness separately (`https://aws.amazon.com/blogs/machine-learning/how-zuru-improved-the-accuracy-of-floor-plan-generation-by-109-using-amazon-bedrock-and-amazon-sagemaker/`).
+
+Evaluation must use separate metrics for:
+
+- instruction adherence: requested room counts, room types, units, adjacencies, style goals, privacy separation, and user edits
+- mathematical/geometric correctness: positive room areas, total square-foot reconciliation, non-overlap, wall alignment, reachable doors, connected circulation, valid exterior openings, and multi-floor consistency
+- architectural realism: circulation efficiency, room proportion checks, public/private zoning, wet-room stacking/grouping, daylight access, solar exposure, and similarity to real plan distributions
+
+Fine-tuning is not required for the MVP. Prompting with structured outputs, retrieval examples, and deterministic validation should come first. Fine-tuning should only be considered after the schema, constraint checker, dataset license review, and evaluation harness are stable. If fine-tuning is pursued, compare prompt-only, LoRA, and full fine-tuning against the same adherence and correctness metrics before adopting the extra infrastructure cost.
+
 ## Agent Responsibilities
 
 - Intake Agent: convert natural language into a structured build spec.

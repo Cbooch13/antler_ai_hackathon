@@ -16,6 +16,10 @@ Current implementation target: **Stage 6E - LLM Schematic Agent**.
 
 Stage 6E provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, and tests. Future stages should be implemented only after review.
 
+Next planning target: **Stage 6F - Agentic Floor-Plan Pipeline**.
+
+Stage 6F is documented in `SPEC.md` and `docs/ARCHITECTURE.md`. It shifts schematic generation from direct plan rendering toward a research-backed planner/refiner/renderer pattern: an LLM Planner Agent produces structured floor-plan JSON, deterministic constraint tools validate square-foot usage and architectural rules, a geometry refiner resolves exact room/wall layout, and a deterministic renderer exports SVG first with later DXF/Revit-compatible or AutoHDR-ready packages.
+
 Each stage must end with:
 
 1. Verification commands passing.

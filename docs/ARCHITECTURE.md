@@ -172,3 +172,62 @@ DesignGenerationResponse
 ```
 
 Stage 6E is LLM-assisted, generative, and conceptual. It creates option cards, dimensioned architectural-style plan views, and downloadable SVG exports for review and later conversational tuning, but it does not create permit drawings, measured CAD/BIM files, AutoHDR imagery, or walkthrough assets.
+
+## Stage 6F Agentic Floor-Plan Pipeline
+
+Stage 6F should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+
+```text
+User brief + selected lot + compliance findings + sun/context metadata
+  |
+  v
+LLM Planner Agent
+  |-- Produces structured floor-plan JSON
+  |-- Includes rooms, target areas, levels, adjacency graph, walls, openings, and constraints
+  |-- Produces human-comfort and space-utilization variants
+  |
+  v
+Deterministic Constraint Tools
+  |-- Area reconciliation and requested-square-foot utilization
+  |-- Room minimums, proportions, and public/private zoning
+  |-- Adjacency and circulation graph checks
+  |-- Door reachability, exterior openings, and daylight/window checks
+  |-- Multi-floor consistency and second-unit separation checks
+  |-- Compliance-risk carry-forward checks
+  |
+  v
+LLM Revision Loop
+  |-- Receives constraint violations
+  |-- Revises structured JSON until passing or marked infeasible/advisory
+  |
+  v
+Geometry Refiner
+  |-- Snaps walls to grid
+  |-- Resolves overlaps and gaps
+  |-- Converts adjacency graph into exact room geometry
+  |-- Allocates levels and stair/service cores when needed
+  |
+  v
+Deterministic Renderer
+  |-- SVG plan export
+  |-- Future DXF/Revit-compatible export
+  |-- Future AutoHDR-ready scene package
+```
+
+The schema should represent the plan as inspectable data, not a generated image:
+
+- `FloorPlanLevel`: level name, gross/net square footage, footprint dimensions, orientation, stair/service-core metadata
+- `RoomNode`: type, target/actual square footage, dimensions, privacy zone, wet-room/daylight flags, user priority
+- `AdjacencyEdge`: source room, target room, required/optional status, relationship type, and rationale
+- `WallSegment`: start/end coordinates, thickness, interior/exterior/load-bearing assumption
+- `Opening`: wall reference, type, width, sill/head metadata where available, and orientation
+- `ConstraintReport`: violations, warnings, professional-review flags, and revision instructions
+
+Dataset strategy:
+
+- Use RPLAN and Tell2Design for research, prompt examples, and language-to-layout evaluation.
+- Evaluate ResPlan for graph-native vector training/evaluation after license review.
+- Track DStruct2Design and ZURU/AWS as references for structured representation and separate adherence/correctness evaluation.
+- Do not ship research-dataset-derived training or examples into production until licenses and commercial-use rights are reviewed.
+
+Evaluation must report instruction adherence separately from geometric correctness. Add architectural realism checks for circulation, room proportions, daylight, public/private zoning, wet-room grouping, second-unit access, and solar/window optimization. Fine-tuning remains a later option; prompt-only structured outputs plus deterministic validation are the required MVP path.
