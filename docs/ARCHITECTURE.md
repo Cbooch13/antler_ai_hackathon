@@ -193,9 +193,13 @@ Stage 6H replaces the OpenAI path's equal-cell room placement with a category-aw
 
 Stage 6I changes the visual output from colored zoning blocks to an architectural-style SVG. The renderer uses a white plan background, wall line weights, door swings, window openings, room labels, and conceptual furniture/fixture symbols for beds, baths, kitchens, living rooms, laundry, and unit rooms. The website preview renders this generated SVG directly instead of rebuilding a colored block plan in React.
 
-## Stage 6J Agentic Floor-Plan Pipeline
+## Stage 6J Adjacency Graph And Circulation Solver
 
-Stage 6J should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6J adds an explicit room-connection graph to every floor plan. Each connection records the source room, target room, connection type, normalized door/opening location, width, and orientation. The renderer uses these connections to draw interior doors/openings, and the quality checker now verifies that every room is reachable from the entry/circulation graph. This makes pathing a first-class contract rather than a decorative SVG detail.
+
+## Stage 6K Agentic Floor-Plan Pipeline
+
+Stage 6K should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata

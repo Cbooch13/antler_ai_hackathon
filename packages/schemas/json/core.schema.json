@@ -265,6 +265,21 @@
         "openingType": { "type": "string", "minLength": 1 }
       }
     },
+    "FloorPlanConnection": {
+      "type": "object",
+      "required": ["connectionId", "fromRoomId", "toRoomId", "connectionType", "x", "y", "width", "orientation"],
+      "additionalProperties": false,
+      "properties": {
+        "connectionId": { "type": "string", "minLength": 1 },
+        "fromRoomId": { "type": "string", "minLength": 1 },
+        "toRoomId": { "type": "string", "minLength": 1 },
+        "connectionType": { "type": "string", "minLength": 1 },
+        "x": { "type": "number", "minimum": 0, "maximum": 100 },
+        "y": { "type": "number", "minimum": 0, "maximum": 100 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
+        "orientation": { "type": "string", "enum": ["horizontal", "vertical"] }
+      }
+    },
     "GeneratedVisualExport": {
       "type": "object",
       "required": ["exportId", "label", "format", "content", "notes"],
@@ -322,6 +337,7 @@
         "rooms",
         "walls",
         "openings",
+        "connections",
         "visualExports",
         "qualityReport",
         "notes"
@@ -347,6 +363,10 @@
         "openings": {
           "type": "array",
           "items": { "$ref": "#/$defs/FloorPlanOpening" }
+        },
+        "connections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/FloorPlanConnection" }
         },
         "visualExports": {
           "type": "array",

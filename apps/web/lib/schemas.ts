@@ -173,6 +173,17 @@ export const floorPlanOpeningSchema = z.object({
   openingType: z.string().min(1)
 });
 
+export const floorPlanConnectionSchema = z.object({
+  connectionId: z.string().min(1),
+  fromRoomId: z.string().min(1),
+  toRoomId: z.string().min(1),
+  connectionType: z.string().min(1),
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  width: z.number().positive().max(100),
+  orientation: z.enum(["horizontal", "vertical"])
+});
+
 export const generatedVisualExportSchema = z.object({
   exportId: z.string().min(1),
   label: z.string().min(1),
@@ -207,6 +218,7 @@ export const floorPlanSchema = z.object({
   rooms: z.array(floorPlanRoomSchema),
   walls: z.array(floorPlanWallSchema),
   openings: z.array(floorPlanOpeningSchema),
+  connections: z.array(floorPlanConnectionSchema),
   visualExports: z.array(generatedVisualExportSchema),
   qualityReport: floorPlanQualityReportSchema,
   notes: z.array(z.string())

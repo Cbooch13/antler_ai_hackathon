@@ -112,6 +112,18 @@ describe("designGenerationResponseSchema", () => {
                   openingType: "door"
                 }
               ],
+              connections: [
+                {
+                  connectionId: "living-kitchen",
+                  fromRoomId: "living",
+                  toRoomId: "kitchen",
+                  connectionType: "wide_opening",
+                  x: 42,
+                  y: 20,
+                  width: 8,
+                  orientation: "vertical"
+                }
+              ],
               visualExports: [
                 {
                   exportId: "floor-plan-balanced-svg",

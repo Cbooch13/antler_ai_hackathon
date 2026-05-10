@@ -9,6 +9,7 @@ from realestate_schemas import (
     Confidence,
     DesignOption,
     FloorPlan,
+    FloorPlanConnection,
     FloorPlanOpening,
     FloorPlanQualityCheck,
     FloorPlanQualityReport,
@@ -103,6 +104,7 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "MetricBasis" in schema["$defs"]
     assert "DesignOption" in schema["$defs"]
     assert "FloorPlan" in schema["$defs"]
+    assert "FloorPlanConnection" in schema["$defs"]
     assert "FloorPlanOpening" in schema["$defs"]
     assert "FloorPlanQualityCheck" in schema["$defs"]
     assert "FloorPlanQualityReport" in schema["$defs"]
@@ -113,6 +115,7 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "floorPlans" in schema["$defs"]["DesignOption"]["required"]
     assert "walls" in schema["$defs"]["FloorPlan"]["required"]
     assert "openings" in schema["$defs"]["FloorPlan"]["required"]
+    assert "connections" in schema["$defs"]["FloorPlan"]["required"]
     assert "scaleAssumption" in schema["$defs"]["FloorPlan"]["required"]
     assert "visualExports" in schema["$defs"]["FloorPlan"]["required"]
     assert "qualityReport" in schema["$defs"]["FloorPlan"]["required"]
@@ -216,6 +219,18 @@ def test_design_option_contract_supports_floor_plans() -> None:
                         openingType="door",
                     )
                 ],
+                connections=[
+                    FloorPlanConnection(
+                        connectionId="living-kitchen",
+                        fromRoomId="living",
+                        toRoomId="kitchen",
+                        connectionType="wide_opening",
+                        x=42,
+                        y=20,
+                        width=8,
+                        orientation="vertical",
+                    )
+                ],
                 footprintWidthFt=55,
                 footprintDepthFt=40,
                 scaleAssumption="Concept scale: 1 SVG unit = 0.55 ft horizontally.",
@@ -256,6 +271,7 @@ def test_design_option_contract_supports_floor_plans() -> None:
     assert payload["floorPlans"][0]["qualityReport"]["checks"][0]["code"] == "circulation"
     assert payload["floorPlans"][0]["walls"][0]["wallType"] == "exterior"
     assert payload["floorPlans"][0]["openings"][0]["openingType"] == "door"
+    assert payload["floorPlans"][0]["connections"][0]["connectionType"] == "wide_opening"
 
 
 def test_parcel_detail_contract_supports_missing_official_joins() -> None:

@@ -281,6 +281,17 @@ class FloorPlanOpening(ContractModel):
     opening_type: str = Field(default="door")
 
 
+class FloorPlanConnection(ContractModel):
+    connection_id: str = Field(min_length=1)
+    from_room_id: str = Field(min_length=1)
+    to_room_id: str = Field(min_length=1)
+    connection_type: str = Field(default="door")
+    x: float = Field(ge=0, le=100)
+    y: float = Field(ge=0, le=100)
+    width: float = Field(gt=0, le=100)
+    orientation: str = Field(pattern="^(horizontal|vertical)$")
+
+
 class GeneratedVisualExport(ContractModel):
     export_id: str = Field(min_length=1)
     label: str = Field(min_length=1)
@@ -324,6 +335,7 @@ class FloorPlan(ContractModel):
     rooms: list[FloorPlanRoom] = Field(default_factory=list)
     walls: list[FloorPlanWall] = Field(default_factory=list)
     openings: list[FloorPlanOpening] = Field(default_factory=list)
+    connections: list[FloorPlanConnection] = Field(default_factory=list)
     visual_exports: list[GeneratedVisualExport] = Field(default_factory=list)
     quality_report: FloorPlanQualityReport = Field(default_factory=default_floor_plan_quality_report)
     notes: list[str] = Field(default_factory=list)

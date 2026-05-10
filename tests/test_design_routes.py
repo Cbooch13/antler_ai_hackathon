@@ -41,12 +41,17 @@ def test_design_route_returns_comfort_and_space_utilization_options() -> None:
     assert all(option["floorPlans"][0]["rooms"] for option in payload["options"])
     assert all(option["floorPlans"][0]["walls"] for option in payload["options"])
     assert all(option["floorPlans"][0]["openings"] for option in payload["options"])
+    assert all(option["floorPlans"][0]["connections"] for option in payload["options"])
     assert all(option["floorPlans"][0]["scaleAssumption"] for option in payload["options"])
     assert all(option["floorPlans"][0]["visualExports"][0]["format"] == "svg" for option in payload["options"])
     assert all(option["floorPlans"][0]["qualityReport"]["checks"] for option in payload["options"])
     assert all(option["floorPlans"][0]["qualityReport"]["score"] > 0 for option in payload["options"])
     assert all(
         option["floorPlans"][0]["qualityReport"]["status"] in {"passes", "warning"}
+        for option in payload["options"]
+    )
+    assert all(
+        any(check["code"] == "path_connectivity" for check in option["floorPlans"][0]["qualityReport"]["checks"])
         for option in payload["options"]
     )
     assert all(

@@ -24,12 +24,17 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
     assert all(option.floor_plans for option in options)
     assert all(option.floor_plans[0].walls for option in options)
     assert all(option.floor_plans[0].openings for option in options)
+    assert all(option.floor_plans[0].connections for option in options)
     assert all(option.target_building_sqft == 2_200 for option in options)
     assert all(abs(option.floor_plans[0].sqft_delta) < 0.01 for option in options)
     assert all(option.floor_plans[0].quality_report.score > 0 for option in options)
     assert all(option.floor_plans[0].quality_report.checks for option in options)
     assert all(
         not any(check.status == "fails" for check in option.floor_plans[0].quality_report.checks)
+        for option in options
+    )
+    assert all(
+        any(check.code == "path_connectivity" for check in option.floor_plans[0].quality_report.checks)
         for option in options
     )
     assert all(option.floor_plans[0].scale_assumption.startswith("Concept scale") for option in options)
@@ -123,8 +128,14 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
         assert len(widths) > 3
         assert any(wall_id.startswith("room-wall-") for wall_id in wall_ids)
         assert "public-private" not in wall_ids
+        assert plan.connections
+        assert any(connection.connection_type in {"door", "wide_opening"} for connection in plan.connections)
         assert not any(
             check.code == "room_overlap" and check.status == "fails"
+            for check in plan.quality_report.checks
+        )
+        assert not any(
+            check.code == "path_connectivity" and check.status == "fails"
             for check in plan.quality_report.checks
         )
         svg = plan.visual_exports[0].content

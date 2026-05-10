@@ -11,6 +11,7 @@ from realestate_schemas import (
     DesignOption,
     FindingStatus,
     FloorPlan,
+    FloorPlanConnection,
     FloorPlanOpening,
     FloorPlanQualityCheck,
     FloorPlanQualityReport,
@@ -153,11 +154,13 @@ class SchematicDesignAgent:
             sqft_delta = round(total_sqft - sum(room.estimated_sqft for room in rooms), 2)
 
         walls = _walls_from_rooms(rooms)
+        connections = _connections_from_rooms(rooms)
         openings = self._openings(strategy)
         quality_report = _quality_report(
             rooms=rooms,
             walls=walls,
             openings=openings,
+            connections=connections,
             total_sqft=total_sqft,
             footprint_width_ft=footprint_width_ft,
             footprint_depth_ft=footprint_depth_ft,
@@ -177,6 +180,7 @@ class SchematicDesignAgent:
             rooms=rooms,
             walls=walls,
             openings=openings,
+            connections=connections,
             scale_assumption=scale_assumption,
         )
         return FloorPlan(
@@ -191,6 +195,7 @@ class SchematicDesignAgent:
             rooms=rooms,
             walls=walls,
             openings=openings,
+            connections=connections,
             visual_exports=[
                 GeneratedVisualExport(
                     export_id=f"{plan_id}-svg",
@@ -625,11 +630,13 @@ def _floor_from_llm(
         f"and {footprint_depth_ft / 100:.2f} ft vertically; room dimensions are model-proposed and rounded."
     )
     walls = _walls_from_rooms(rooms)
+    connections = _connections_from_rooms(rooms)
     openings = _openings_for_strategy(strategy)
     quality_report = _quality_report(
         rooms=rooms,
         walls=walls,
         openings=openings,
+        connections=connections,
         total_sqft=floor_sqft,
         footprint_width_ft=footprint_width_ft,
         footprint_depth_ft=footprint_depth_ft,
@@ -645,6 +652,7 @@ def _floor_from_llm(
         rooms=rooms,
         walls=walls,
         openings=openings,
+        connections=connections,
         scale_assumption=scale_assumption,
     )
     return FloorPlan(
@@ -659,6 +667,7 @@ def _floor_from_llm(
         rooms=rooms,
         walls=walls,
         openings=openings,
+        connections=connections,
         visual_exports=[
             GeneratedVisualExport(
                 export_id=f"{plan_id}-svg",
@@ -963,6 +972,172 @@ def _openings_for_strategy(strategy: str) -> list[FloorPlanOpening]:
     ]
 
 
+def _connections_from_rooms(rooms: list[FloorPlanRoom]) -> list[FloorPlanConnection]:
+    direct = _direct_room_connections(rooms)
+    by_room: dict[str, list[FloorPlanConnection]] = {room.room_id: [] for room in rooms}
+    for connection in direct:
+        by_room[connection.from_room_id].append(connection)
+        by_room[connection.to_room_id].append(connection)
+
+    hub = _connection_hub_room(rooms)
+    if hub is None:
+        return direct
+
+    connections = list(direct)
+    connected_ids = _reachable_room_ids(hub.room_id, connections)
+    for room in rooms:
+        if room.room_id == hub.room_id or room.room_id in connected_ids:
+            continue
+        nearest = _nearest_connected_room(room, [candidate for candidate in rooms if candidate.room_id in connected_ids])
+        if nearest is None:
+            continue
+        fallback = _fallback_connection(room, nearest, len(connections) + 1)
+        connections.append(fallback)
+        connected_ids = _reachable_room_ids(hub.room_id, connections)
+    return connections
+
+
+def _direct_room_connections(rooms: list[FloorPlanRoom]) -> list[FloorPlanConnection]:
+    connections: list[FloorPlanConnection] = []
+    for index, first in enumerate(rooms):
+        for second in rooms[index + 1 :]:
+            connection = _shared_boundary_connection(first, second, len(connections) + 1)
+            if connection is not None:
+                connections.append(connection)
+    return connections
+
+
+def _shared_boundary_connection(
+    first: FloorPlanRoom,
+    second: FloorPlanRoom,
+    index: int,
+) -> FloorPlanConnection | None:
+    tolerance = 0.2
+    first_right = first.x + first.width
+    second_right = second.x + second.width
+    first_bottom = first.y + first.height
+    second_bottom = second.y + second.height
+
+    if abs(first_right - second.x) <= tolerance or abs(second_right - first.x) <= tolerance:
+        boundary_x = first_right if abs(first_right - second.x) <= tolerance else second_right
+        overlap_start = max(first.y, second.y)
+        overlap_end = min(first_bottom, second_bottom)
+        overlap = overlap_end - overlap_start
+        if overlap >= 3:
+            return _connection(
+                index=index,
+                first=first,
+                second=second,
+                x=boundary_x,
+                y=overlap_start + overlap / 2,
+                width=min(8, max(3, overlap * 0.5)),
+                orientation="vertical",
+            )
+
+    if abs(first_bottom - second.y) <= tolerance or abs(second_bottom - first.y) <= tolerance:
+        boundary_y = first_bottom if abs(first_bottom - second.y) <= tolerance else second_bottom
+        overlap_start = max(first.x, second.x)
+        overlap_end = min(first_right, second_right)
+        overlap = overlap_end - overlap_start
+        if overlap >= 3:
+            return _connection(
+                index=index,
+                first=first,
+                second=second,
+                x=overlap_start + overlap / 2,
+                y=boundary_y,
+                width=min(8, max(3, overlap * 0.5)),
+                orientation="horizontal",
+            )
+    return None
+
+
+def _connection(
+    index: int,
+    first: FloorPlanRoom,
+    second: FloorPlanRoom,
+    x: float,
+    y: float,
+    width: float,
+    orientation: str,
+) -> FloorPlanConnection:
+    return FloorPlanConnection(
+        connection_id=f"connection-{index}",
+        from_room_id=first.room_id,
+        to_room_id=second.room_id,
+        connection_type=_connection_type(first, second),
+        x=round(max(0, min(100, x)), 2),
+        y=round(max(0, min(100, y)), 2),
+        width=round(max(2.5, min(100, width)), 2),
+        orientation=orientation,
+    )
+
+
+def _connection_type(first: FloorPlanRoom, second: FloorPlanRoom) -> str:
+    categories = {first.category, second.category}
+    if "unit" in categories:
+        return "unit_entry"
+    if categories <= {"entry", "living", "kitchen", "circulation"}:
+        return "wide_opening"
+    return "door"
+
+
+def _connection_hub_room(rooms: list[FloorPlanRoom]) -> FloorPlanRoom | None:
+    for category in ("entry", "circulation", "living", "kitchen"):
+        for room in rooms:
+            if room.category == category:
+                return room
+    return rooms[0] if rooms else None
+
+
+def _reachable_room_ids(start_room_id: str, connections: list[FloorPlanConnection]) -> set[str]:
+    adjacency: dict[str, set[str]] = {}
+    for connection in connections:
+        adjacency.setdefault(connection.from_room_id, set()).add(connection.to_room_id)
+        adjacency.setdefault(connection.to_room_id, set()).add(connection.from_room_id)
+    seen = {start_room_id}
+    frontier = [start_room_id]
+    while frontier:
+        current = frontier.pop()
+        for next_room in adjacency.get(current, set()):
+            if next_room not in seen:
+                seen.add(next_room)
+                frontier.append(next_room)
+    return seen
+
+
+def _nearest_connected_room(
+    room: FloorPlanRoom,
+    candidates: list[FloorPlanRoom],
+) -> FloorPlanRoom | None:
+    if not candidates:
+        return None
+    room_center = _room_center(room)
+    return min(candidates, key=lambda candidate: _distance(room_center, _room_center(candidate)))
+
+
+def _fallback_connection(
+    room: FloorPlanRoom,
+    connected_room: FloorPlanRoom,
+    index: int,
+) -> FloorPlanConnection:
+    room_center = _room_center(room)
+    connected_center = _room_center(connected_room)
+    if abs(room_center[0] - connected_center[0]) > abs(room_center[1] - connected_center[1]):
+        x = room.x if room_center[0] > connected_center[0] else room.x + room.width
+        return _connection(index, room, connected_room, x, room_center[1], 3.2, "vertical")
+    y = room.y if room_center[1] > connected_center[1] else room.y + room.height
+    return _connection(index, room, connected_room, room_center[0], y, 3.2, "horizontal")
+
+
+def _room_center(room: FloorPlanRoom) -> tuple[float, float]:
+    return (room.x + room.width / 2, room.y + room.height / 2)
+
+
+def _distance(first: tuple[float, float], second: tuple[float, float]) -> float:
+    return math.sqrt((first[0] - second[0]) ** 2 + (first[1] - second[1]) ** 2)
+
+
 def _target_sqft(spec: UserBuildSpec) -> float:
     return max(400, round(spec.target_building_sqft or 1_800))
 
@@ -1071,6 +1246,7 @@ def _quality_report(
     rooms: list[FloorPlanRoom],
     walls: list[FloorPlanWall],
     openings: list[FloorPlanOpening],
+    connections: list[FloorPlanConnection],
     total_sqft: float,
     footprint_width_ft: float,
     footprint_depth_ft: float,
@@ -1086,6 +1262,7 @@ def _quality_report(
         _room_program_check(rooms, spec),
         _room_dimension_check(rooms),
         _circulation_check(rooms),
+        _path_connectivity_check(rooms, connections),
         _opening_check(openings),
         _unit_separation_check(rooms, walls, spec),
         _solar_check(openings, strategy),
@@ -1321,6 +1498,54 @@ def _circulation_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
     )
 
 
+def _path_connectivity_check(
+    rooms: list[FloorPlanRoom],
+    connections: list[FloorPlanConnection],
+) -> FloorPlanQualityCheck:
+    if not rooms:
+        return _quality_check(
+            "path_connectivity",
+            "Path connectivity",
+            FindingStatus.FAILS,
+            "No rooms are available to evaluate circulation paths.",
+        )
+    hub = _connection_hub_room(rooms)
+    if hub is None or not connections:
+        return _quality_check(
+            "path_connectivity",
+            "Path connectivity",
+            FindingStatus.FAILS,
+            "No room connection graph is modeled.",
+        )
+    reachable = _reachable_room_ids(hub.room_id, connections)
+    missing = [room.name for room in rooms if room.room_id not in reachable]
+    if missing:
+        return _quality_check(
+            "path_connectivity",
+            "Path connectivity",
+            FindingStatus.FAILS,
+            f"Rooms are not reachable from the entry/circulation graph: {', '.join(missing[:4])}.",
+        )
+    narrow_doors = [
+        connection.connection_id
+        for connection in connections
+        if connection.connection_type in {"door", "unit_entry"} and connection.width < 3
+    ]
+    if narrow_doors:
+        return _quality_check(
+            "path_connectivity",
+            "Path connectivity",
+            FindingStatus.WARNING,
+            "Some modeled doors are narrow and need architect review.",
+        )
+    return _quality_check(
+        "path_connectivity",
+        "Path connectivity",
+        FindingStatus.PASSES,
+        "All rooms are reachable through the modeled connection graph.",
+    )
+
+
 def _opening_check(openings: list[FloorPlanOpening]) -> FloorPlanQualityCheck:
     door_count = sum(1 for opening in openings if opening.opening_type == "door")
     window_count = sum(1 for opening in openings if opening.opening_type == "window")
@@ -1483,6 +1708,7 @@ def _svg_export(
     rooms: list[FloorPlanRoom],
     walls: list[FloorPlanWall],
     openings: list[FloorPlanOpening],
+    connections: list[FloorPlanConnection],
     scale_assumption: str,
 ) -> str:
     scale = 7.2
@@ -1494,7 +1720,7 @@ def _svg_export(
     fixture_markup = "\n".join(_svg_room_symbols(room, scale) for room in rooms)
     wall_markup = "\n".join(_svg_wall(wall, scale) for wall in walls)
     opening_markup = "\n".join(_svg_opening(opening, scale) for opening in openings)
-    door_markup = "\n".join(_svg_room_door(room, scale) for room in rooms if room.category != "circulation")
+    connection_markup = "\n".join(_svg_connection(connection, scale) for connection in connections)
     escaped_title = escape(title)
     escaped_scale = escape(scale_assumption)
     return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width:.0f}" height="{svg_height:.0f}" viewBox="0 0 {svg_width:.0f} {svg_height:.0f}" role="img" aria-label="{escaped_title}">
@@ -1519,7 +1745,7 @@ def _svg_export(
   <g transform="translate({margin_x} {margin_y})">
     <rect x="0" y="0" width="{100 * scale:.1f}" height="{100 * scale:.1f}" fill="#ffffff"/>
     {fixture_markup}
-    {door_markup}
+    {connection_markup}
     {opening_markup}
     {wall_markup}
     {room_label_markup}
@@ -1572,22 +1798,37 @@ def _svg_exterior_door(opening: FloorPlanOpening, scale: float) -> str:
     )
 
 
-def _svg_room_door(room: FloorPlanRoom, scale: float) -> str:
-    x = room.x * scale
-    y = room.y * scale
-    width = room.width * scale
-    height = room.height * scale
-    door = min(30, max(18, min(width, height) * 0.35))
-    if room.category in {"entry", "living", "kitchen", "unit"}:
-        door_x = x + max(8, min(width - door - 4, width * 0.12))
+def _svg_connection(connection: FloorPlanConnection, scale: float) -> str:
+    if connection.connection_type == "wide_opening":
+        return _svg_wide_opening(connection, scale)
+    return _svg_connection_door(connection, scale)
+
+
+def _svg_wide_opening(connection: FloorPlanConnection, scale: float) -> str:
+    x = connection.x * scale
+    y = connection.y * scale
+    width = connection.width * scale
+    if connection.orientation == "vertical":
         return (
-            f'<g><line class="door" x1="{door_x:.1f}" y1="{y + height:.1f}" x2="{door_x + door:.1f}" y2="{y + height:.1f}"/>'
-            f'<path class="door" d="M {door_x:.1f} {y + height:.1f} A {door:.1f} {door:.1f} 0 0 0 {door_x + door:.1f} {y + height - door:.1f}"/></g>'
+            f'<rect class="opening" x="{x - 4:.1f}" y="{y - width / 2:.1f}" width="8" height="{width:.1f}"/>'
         )
-    door_y = y + max(8, min(height - door - 4, height * 0.18))
     return (
-        f'<g><line class="door" x1="{x:.1f}" y1="{door_y:.1f}" x2="{x:.1f}" y2="{door_y + door:.1f}"/>'
-        f'<path class="door" d="M {x:.1f} {door_y:.1f} A {door:.1f} {door:.1f} 0 0 1 {x + door:.1f} {door_y + door:.1f}"/></g>'
+        f'<rect class="opening" x="{x - width / 2:.1f}" y="{y - 4:.1f}" width="{width:.1f}" height="8"/>'
+    )
+
+
+def _svg_connection_door(connection: FloorPlanConnection, scale: float) -> str:
+    x = connection.x * scale
+    y = connection.y * scale
+    door = max(18, min(34, connection.width * scale))
+    if connection.orientation == "vertical":
+        return (
+            f'<g><line class="door" x1="{x:.1f}" y1="{y - door / 2:.1f}" x2="{x:.1f}" y2="{y + door / 2:.1f}"/>'
+            f'<path class="door" d="M {x:.1f} {y - door / 2:.1f} A {door:.1f} {door:.1f} 0 0 1 {x + door:.1f} {y + door / 2:.1f}"/></g>'
+        )
+    return (
+        f'<g><line class="door" x1="{x - door / 2:.1f}" y1="{y:.1f}" x2="{x + door / 2:.1f}" y2="{y:.1f}"/>'
+        f'<path class="door" d="M {x - door / 2:.1f} {y:.1f} A {door:.1f} {door:.1f} 0 0 0 {x + door / 2:.1f} {y - door:.1f}"/></g>'
     )
 
 
