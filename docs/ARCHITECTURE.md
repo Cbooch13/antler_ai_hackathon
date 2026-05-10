@@ -221,6 +221,8 @@ The checker now treats pathing and spacing as architectural constraints instead 
 
 The LLM geometry refiner also inserts small wet-core support and private support rooms when a model underspecifies a compact plan, which prevents one bathroom or bedroom from absorbing all remaining square footage.
 
+Floor-plan generation is paused here. See [Floor Plan Generation Pause](FLOOR_PLAN_GENERATION_PAUSE.md) before resuming work on Stage 6M or later schematic-generation stages.
+
 ## Stage 6M Agentic Floor-Plan Pipeline
 
 Stage 6M should continue replacing direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.

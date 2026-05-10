@@ -20,6 +20,8 @@ Next planning target: **Stage 6M - Real Dataset Exemplar Import Pipeline**.
 
 Stage 6M should add a license-reviewed import pipeline for research or owned floor-plan exemplars, converting vector/raster sources into the internal room graph, room-ratio, adjacency, and validation schema.
 
+Floor-plan generation is paused after Stage 6L. See [Floor Plan Generation Pause](docs/FLOOR_PLAN_GENERATION_PAUSE.md) for resume context, known limitations, and recommended next steps.
+
 Each stage must end with:
 
 1. Verification commands passing.
