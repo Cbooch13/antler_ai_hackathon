@@ -5,7 +5,7 @@ from estate_agents import OpenAISchematicDesignAgent, SchematicAgentInput, Schem
 from realestate_schemas import PropertyType, UserBuildSpec
 
 
-def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
+def test_schematic_agent_generates_one_primary_plan() -> None:
     spec = UserBuildSpec(
         project_name="Architectural concept",
         property_type=PropertyType.ADU,
@@ -20,7 +20,7 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
         SchematicAgentInput(spec=spec, warning_findings=[])
     )
 
-    assert [option.strategy for option in options] == ["human_comfort", "space_utilization"]
+    assert [option.strategy for option in options] == ["human_comfort"]
     assert all(option.floor_plans for option in options)
     assert all(option.floor_plans[0].walls for option in options)
     assert all(option.floor_plans[0].openings for option in options)
@@ -72,7 +72,7 @@ def test_openai_schematic_agent_falls_back_when_disabled(monkeypatch) -> None:
         )
     )
 
-    assert [option.strategy for option in options] == ["human_comfort", "space_utilization"]
+    assert [option.strategy for option in options] == ["human_comfort"]
     assert all(option.floor_plans for option in options)
     assert all(option.floor_plans[0].quality_report.checks for option in options)
 
@@ -112,7 +112,7 @@ def test_openai_schematic_agent_revises_against_quality_feedback(monkeypatch) ->
     assert len(prompts) == 2
     assert '"revision_feedback": []' in prompts[0]
     assert "program_fit" in prompts[1]
-    assert [option.strategy for option in options] == ["human_comfort", "space_utilization"]
+    assert [option.strategy for option in options] == ["human_comfort"]
     assert all(
         not any(check.status == "fails" for check in option.floor_plans[0].quality_report.checks)
         for option in options
@@ -165,21 +165,13 @@ def _llm_payload(include_required_program: bool) -> dict:
     return {
         "options": [
             {
-                "name": "Human Comfort Plan",
+                "name": "Primary Feasibility Plan",
                 "strategy": "human_comfort",
                 "concept": "Comfort-focused test plan.",
                 "solar_strategy": "Prioritize south and east daylight.",
                 "floors": [{"level": "Level 1", "rooms": rooms, "floor_notes": ["Test floor."]}],
                 "assumptions": ["Test assumption."],
-            },
-            {
-                "name": "Space Utilization Plan",
-                "strategy": "space_utilization",
-                "concept": "Efficient test plan.",
-                "solar_strategy": "Compact plan with controlled glazing.",
-                "floors": [{"level": "Level 1", "rooms": rooms, "floor_notes": ["Test floor."]}],
-                "assumptions": ["Test assumption."],
-            },
+            }
         ]
     }
 

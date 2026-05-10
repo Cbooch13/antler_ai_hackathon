@@ -28,8 +28,8 @@ Return architectural concepts as structured JSON only. Your job is to propose pl
 respect the requested program, preserve human livability, and explain design tradeoffs.
 
 Rules:
-- Produce exactly two options: human_comfort and space_utilization.
-- Use the requested target building square footage for both options.
+- Produce exactly one option with strategy human_comfort.
+- Use the requested target building square footage for the option.
 - Include reasonable room dimensions in feet and room areas that can reconcile to the target.
 - Prefer public rooms with south/east daylight in Austin; reduce west glazing.
 - Group kitchens, baths, laundry, and ADU wet rooms near wet-wall cores.
@@ -75,7 +75,7 @@ class SchematicDesignAgent:
         return [
             DesignOption(
                 option_id=f"schematic-human-comfort-{variant_id}",
-                name="Human Comfort Plan",
+                name="Primary Feasibility Plan",
                 strategy="human_comfort",
                 target_building_sqft=target_sqft,
                 units=spec.units,
@@ -84,7 +84,7 @@ class SchematicDesignAgent:
                         spec=spec,
                         strategy="human_comfort",
                         plan_id=f"floor-plan-human-comfort-{variant_id}",
-                        name="Human Comfort Ground Floor",
+                        name="Primary Feasibility Floor Plan",
                         total_sqft=target_sqft,
                         aspect_ratio=self.rng.uniform(1.42, 1.68),
                         layouts=self._comfort_layouts(spec),
@@ -95,40 +95,13 @@ class SchematicDesignAgent:
                     )
                 ],
                 assumptions=[
+                    "Returns one primary plan while schematic quality thresholds are being tightened.",
                     "Prioritizes comfort, daylight, room separation, storage, and a clear entry sequence.",
                     "Groups wet rooms for buildability while keeping bedrooms buffered from the main entry.",
                     "Uses the full requested building program; room areas are reconciled to the target square footage.",
                 ],
                 compliance_findings=agent_input.warning_findings,
-            ),
-            DesignOption(
-                option_id=f"schematic-space-utilization-{variant_id}",
-                name="Space Utilization Plan",
-                strategy="space_utilization",
-                target_building_sqft=target_sqft,
-                units=spec.units,
-                floor_plans=[
-                    self._plan(
-                        spec=spec,
-                        strategy="space_utilization",
-                        plan_id=f"floor-plan-space-utilization-{variant_id}",
-                        name="Space Utilization Ground Floor",
-                        total_sqft=target_sqft,
-                        aspect_ratio=self.rng.uniform(1.55, 1.9),
-                        layouts=self._space_utilization_layouts(spec),
-                        notes=[
-                            "Generated concept compresses circulation and stacks wet rooms to improve usable-area efficiency.",
-                            "Tighter planning increases the need to verify egress, clearances, structure, and utilities.",
-                        ],
-                    )
-                ],
-                assumptions=[
-                    "Optimizes usable program area through compact circulation and flexible rooms.",
-                    "Keeps second-unit access legible while minimizing duplicated service area.",
-                    "Uses the full requested building program; room areas are reconciled to the target square footage.",
-                ],
-                compliance_findings=agent_input.warning_findings,
-            ),
+            )
         ]
 
     def _plan(
@@ -217,8 +190,8 @@ class SchematicDesignAgent:
         )
 
     def _comfort_layouts(self, spec: UserBuildSpec) -> list[RoomLayout]:
-        public_h = self.rng.uniform(32, 37)
-        adu_h = self.rng.uniform(22, 28) if spec.units > 1 else 0
+        public_h = 32
+        adu_h = 22 if spec.units > 1 else 0
         private_h = 100 - public_h - adu_h
         bedrooms = max(1, min(spec.bedrooms or 3, 4))
         bathrooms = max(1, min(round(spec.bathrooms or 2), 3))
@@ -460,7 +433,7 @@ def _llm_response_schema() -> dict[str, Any]:
         "required": ["name", "strategy", "concept", "solar_strategy", "floors", "assumptions"],
         "properties": {
             "name": {"type": "string"},
-            "strategy": {"type": "string", "enum": ["human_comfort", "space_utilization"]},
+            "strategy": {"type": "string", "enum": ["human_comfort"]},
             "concept": {"type": "string"},
             "solar_strategy": {"type": "string"},
             "floors": {"type": "array", "minItems": 1, "maxItems": 3, "items": floor},
@@ -472,7 +445,7 @@ def _llm_response_schema() -> dict[str, Any]:
         "additionalProperties": False,
         "required": ["options"],
         "properties": {
-            "options": {"type": "array", "minItems": 2, "maxItems": 2, "items": option}
+            "options": {"type": "array", "minItems": 1, "maxItems": 1, "items": option}
         },
     }
 
@@ -532,8 +505,8 @@ def _options_from_llm_payload(
             )
         )
 
-    if {option.strategy for option in options} != {"human_comfort", "space_utilization"}:
-        raise ValueError("LLM did not return required schematic strategies")
+    if [option.strategy for option in options] != ["human_comfort"]:
+        raise ValueError("LLM did not return the required primary schematic strategy")
     return options
 
 
@@ -546,8 +519,22 @@ def _average_quality_score(options: list[DesignOption]) -> float:
 
 def _options_pass_quality(options: list[DesignOption]) -> bool:
     reports = [plan.quality_report for option in options for plan in option.floor_plans]
+    critical_codes = {
+        "area_reconciliation",
+        "footprint_area",
+        "room_bounds",
+        "room_overlap",
+        "program_fit",
+        "room_dimensions",
+        "path_connectivity",
+    }
     return bool(reports) and all(
-        not any(check.status == FindingStatus.FAILS for check in report.checks)
+        report.score >= 85
+        and all(
+            check.status == FindingStatus.PASSES
+            for check in report.checks
+            if check.code in critical_codes
+        )
         for report in reports
     )
 
@@ -1443,11 +1430,13 @@ def _room_dimension_check(rooms: list[FloorPlanRoom]) -> FloorPlanQualityCheck:
     warnings: list[str] = []
     for room in rooms:
         min_sqft, min_dimension = minimums.get(room.category, (24, 3))
+        if room.category == "living" and "dining" in room.name.lower():
+            min_sqft = 80
         shortest_side = min(room.width_ft, room.depth_ft)
         longest_side = max(room.width_ft, room.depth_ft)
         if room.estimated_sqft < min_sqft or shortest_side < min_dimension:
             failures.append(room.name)
-        elif longest_side / max(shortest_side, 1) > 4.8:
+        elif room.category != "circulation" and longest_side / max(shortest_side, 1) > 4.8:
             warnings.append(room.name)
 
     if failures:

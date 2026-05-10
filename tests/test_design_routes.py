@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from app.main import create_app
 
 
-def test_design_route_returns_comfort_and_space_utilization_options() -> None:
+def test_design_route_returns_one_primary_schematic_option() -> None:
     client = TestClient(create_app())
 
     response = client.post(
@@ -30,12 +30,8 @@ def test_design_route_returns_comfort_and_space_utilization_options() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["listing"]["listingId"] == "kaggle-austin-001"
-    assert [option["strategy"] for option in payload["options"]] == [
-        "human_comfort",
-        "space_utilization",
-    ]
+    assert [option["strategy"] for option in payload["options"]] == ["human_comfort"]
     assert payload["options"][0]["targetBuildingSqft"] == 2200
-    assert payload["options"][1]["targetBuildingSqft"] == 2200
     assert all(option["floorPlans"] for option in payload["options"])
     assert all(option["floorPlans"][0]["totalSqft"] > 0 for option in payload["options"])
     assert all(option["floorPlans"][0]["rooms"] for option in payload["options"])
