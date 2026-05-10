@@ -129,6 +129,56 @@ export interface PacketData {
   groups: PacketGroup[];
 }
 
+// Floor plan dataset types (ResPlan + fallback exemplars)
+
+export interface FloorPlanEntry {
+  id: string;
+  name: string;
+  family: string;
+  beds: number;
+  baths: number;
+  units: number;
+  sqftEstimate: number;
+  sqftRange: [number, number];
+  propertyTypes: string[];
+  styleKeywords: string[];
+  roomTypes: string[];
+  imageUrl: string;
+  sourceDataset: string;
+  licenseNote: string;
+}
+
+// Lot geometry from TCAD ArcGIS FeatureServer
+
+export interface LotGeometry {
+  rings: [number, number][][];
+  centroid: { lat: number; lng: number };
+  lotSqft: number;
+  parcelId: string | null;
+}
+
+// fal.ai generated imagery
+
+export interface GeneratedImage {
+  label: string;
+  url: string;
+  prompt: string;
+}
+
+export interface GeneratedImageSet {
+  images: GeneratedImage[];
+  referenceImageUrl: string;
+}
+
+export interface VideoClip {
+  label: string;
+  url: string;
+}
+
+export interface GeneratedVideo {
+  clips: VideoClip[];
+}
+
 // Workflow types
 
 export type Screen =
@@ -139,7 +189,14 @@ export type Screen =
   | 'schematic'
   | 'packet';
 
-export type JobName = 'validate' | 'normalize' | 'findLots' | 'feasibility' | 'plan';
+export type JobName =
+  | 'validate'
+  | 'normalize'
+  | 'findLots'
+  | 'feasibility'
+  | 'plan'
+  | 'generateImages'
+  | 'generateVideo';
 
 export type RunStatus = 'idle' | 'loading' | 'done' | 'error';
 
@@ -152,6 +209,11 @@ export interface WorkflowState {
   selectedLotId: string | null;
   intake: Intake;
   conversation: string;
+  selectedPlan: FloorPlanEntry | null;
+  planCandidates: FloorPlanEntry[];
+  lotGeometry: LotGeometry | null;
+  generatedImages: GeneratedImageSet | null;
+  generatedVideo: GeneratedVideo | null;
 }
 
 export type StatusKind = 'passes' | 'warning' | 'fail' | 'unknown' | 'info';

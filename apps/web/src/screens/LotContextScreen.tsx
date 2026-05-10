@@ -8,6 +8,7 @@ import { PHOTOS } from '../photos';
 
 export function LotContextScreen() {
   const { state, run, runStates } = useWorkflow();
+  const lotGeometry = state.lotGeometry;
   const navigate = useNavigate();
   const lot = lots.find(l => l.id === state.selectedLotId);
 
@@ -102,7 +103,24 @@ export function LotContextScreen() {
               <div className="k">Source</div><div className="v">kaggle.static.fallback</div>
               <div className="k">Row id</div><div className="v">austin_homes/04307</div>
               <div className="k">As of</div><div className="v">2024-08-12</div>
-              <div className="k">Parcel id</div><div className="v"><span className="muted">pending</span></div>
+              <div className="k">Parcel id</div>
+              <div className="v">
+                {lotGeometry?.parcelId
+                  ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{lotGeometry.parcelId}</span>
+                  : <span className="muted">pending</span>}
+              </div>
+              <div className="k">GIS lot sqft</div>
+              <div className="v">
+                {lotGeometry?.lotSqft
+                  ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11.5 }}>{lotGeometry.lotSqft.toLocaleString()} sqft</span>
+                  : <span className="muted">pending</span>}
+              </div>
+              <div className="k">Centroid</div>
+              <div className="v">
+                {lotGeometry
+                  ? <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>{lotGeometry.centroid.lat.toFixed(5)}, {lotGeometry.centroid.lng.toFixed(5)}</span>
+                  : <span className="muted">pending</span>}
+              </div>
               <div className="k">Zoning</div><div className="v"><span className="muted">pending</span></div>
               <div className="k">Permits</div><div className="v"><span className="muted">pending</span></div>
             </div>

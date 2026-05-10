@@ -1,9 +1,13 @@
 import { useState } from 'react';
 import { useWorkflow } from '../WorkflowContext';
-import { Btn, Status, Panel, Banner } from '../components';
-import { fmt } from '../components';
+import { Btn, Status, Panel, Banner, fmt } from '../components';
+import { ImageGallery } from '../components/ImageGallery';
+import { VideoPlayer } from '../components/VideoPlayer';
+import { fitScore } from '../api/selectPlan';
 import { schematic, lots } from '../data/mock';
+import type { FloorPlanEntry } from '../types';
 
+// Static fallback SVG shown when no ResPlan image is available
 function FloorPlanSVG() {
   const W = 100, H = 67;
   const rooms = [
@@ -71,6 +75,85 @@ function FloorPlanSVG() {
   );
 }
 
+function PlanInfoCard({ plan }: { plan: FloorPlanEntry }) {
+  const roomGroups: Record<string, number> = {};
+  for (const r of plan.roomTypes) roomGroups[r] = (roomGroups[r] ?? 0) + 1;
+  return (
+    <div style={{
+      background: 'oklch(0.985 0.004 195)',
+      borderBottom: '1px solid var(--border)',
+      padding: '24px 24px 20px',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 18,
+    }}>
+      <div style={{ display: 'flex', gap: 32 }}>
+        {[
+          { label: 'Beds', value: plan.beds },
+          { label: 'Baths', value: plan.baths },
+          { label: 'Units', value: plan.units },
+          { label: 'Est. sqft', value: plan.sqftEstimate.toLocaleString() },
+        ].map(({ label, value }) => (
+          <div key={label} style={{ textAlign: 'center', minWidth: 60 }}>
+            <div style={{ fontSize: 28, fontWeight: 700, letterSpacing: '-0.03em', color: 'var(--text)' }}>{value}</div>
+            <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-3)', marginTop: 2 }}>{label}</div>
+          </div>
+        ))}
+        <div style={{ flex: 1 }} />
+        <div style={{ alignSelf: 'flex-start' }}>
+          <div style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-3)', marginBottom: 4 }}>family</div>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>{plan.family}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        {Object.entries(roomGroups).map(([room, count]) => (
+          <span key={room} style={{
+            fontSize: 11, fontFamily: 'var(--font-mono)',
+            background: 'white', border: '1px solid var(--border)',
+            borderRadius: 4, padding: '2px 7px', color: 'var(--text-2)',
+          }}>
+            {count > 1 ? `${count}× ` : ''}{room}
+          </span>
+        ))}
+      </div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+        {plan.styleKeywords.map(k => (
+          <span key={k} style={{
+            fontSize: 11, fontFamily: 'var(--font-mono)',
+            background: 'var(--teal-soft)', border: '1px solid oklch(0.85 0.05 195)',
+            borderRadius: 4, padding: '2px 7px', color: 'var(--text-2)',
+          }}>{k}</span>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: 'var(--text-3)', fontFamily: 'var(--font-mono)' }}>
+        sqft range {plan.sqftRange[0].toLocaleString()}–{plan.sqftRange[1].toLocaleString()} · {plan.licenseNote.split('—')[0].trim()}
+      </div>
+    </div>
+  );
+}
+
+function ResPlanImage({ plan }: { plan: FloorPlanEntry }) {
+  const [imgError, setImgError] = useState(false);
+  if (imgError) return <PlanInfoCard plan={plan} />;
+  return (
+    <div style={{ position: 'relative', background: 'oklch(0.99 0.002 95)', minHeight: 200 }}>
+      <img
+        src={plan.imageUrl}
+        alt={plan.name}
+        onError={() => setImgError(true)}
+        style={{ width: '100%', display: 'block', objectFit: 'contain', maxHeight: 420 }}
+      />
+      <div style={{
+        position: 'absolute', bottom: 8, right: 10,
+        fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--text-3)',
+        background: 'rgba(255,255,255,0.8)', padding: '2px 6px', borderRadius: 3,
+      }}>
+        {plan.licenseNote.split('—')[0].trim()}
+      </div>
+    </div>
+  );
+}
+
 function DesignConversation() {
   const [msgs, setMsgs] = useState([
     { role: 'agent', text: 'Plan generated with 2 quality fails (program fit, unit separation). What direction should I tune?' },
@@ -122,10 +205,22 @@ function DesignConversation() {
 }
 
 export function SchematicScreen() {
-  const { state, setState, advanceTo } = useWorkflow();
+  const { state, setState, advanceTo, run, runStates } = useWorkflow();
   const s = schematic;
   const lot = lots.find(l => l.id === state.selectedLotId);
   const failed = s.qualityChecks.filter(q => q.status === 'fail').length;
+  const selectedPlan = state.selectedPlan;
+  const candidates = state.planCandidates;
+  const generatedImages = state.generatedImages;
+  const generatedVideo = state.generatedVideo;
+  const imagesLoading = runStates.generateImages === 'loading';
+  const videoLoading = runStates.generateVideo === 'loading';
+  const imagesError = runStates.generateImages === 'error';
+  const videoError = runStates.generateVideo === 'error';
+
+  const pickPlan = (plan: FloorPlanEntry) => {
+    setState(s => ({ ...s, selectedPlan: plan, generatedImages: null, generatedVideo: null }));
+  };
 
   return (
     <>
@@ -135,6 +230,65 @@ export function SchematicScreen() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 360px', gap: 16, marginTop: 14, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+          {/* Floor plan picker */}
+          {candidates.length > 0 && (
+            <Panel title="Select floor plan" sub={`${candidates.length} best matches for your intake — click to select`} flush>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {candidates.map((plan, i) => {
+                  const isSelected = selectedPlan?.id === plan.id;
+                  const score = fitScore(plan, state.intake);
+                  return (
+                    <button
+                      key={plan.id}
+                      onClick={() => pickPlan(plan)}
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '10px 16px',
+                        borderTop: i > 0 ? '1px solid var(--border)' : 'none',
+                        border: 'none',
+                        background: isSelected ? 'var(--teal-soft)' : 'transparent',
+                        cursor: 'pointer', textAlign: 'left', width: '100%',
+                      }}
+                    >
+                      <div style={{
+                        width: 80, height: 56, flexShrink: 0, overflow: 'hidden',
+                        border: '1px solid var(--border)', borderRadius: 4,
+                        background: 'var(--bg-alt)',
+                      }}>
+                        <img src={plan.imageUrl} alt={plan.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                          onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                        />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {plan.name}
+                        </div>
+                        <div style={{ fontSize: 11.5, color: 'var(--text-3)', marginTop: 2 }}>
+                          {plan.beds}bd · {plan.baths}ba · {plan.units}u · {fmt.num(plan.sqftEstimate)} sqft
+                        </div>
+                        <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 1, fontFamily: 'var(--font-mono)' }}>
+                          {plan.styleKeywords.slice(0, 3).join(' · ')}
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                        <span style={{
+                          fontSize: 11, fontFamily: 'var(--font-mono)',
+                          color: score >= 80 ? 'var(--pass)' : score >= 60 ? 'var(--text-2)' : 'var(--text-3)',
+                          background: 'var(--bg-alt)', border: '1px solid var(--border)',
+                          borderRadius: 4, padding: '2px 6px',
+                        }}>{score}% fit</span>
+                        {isSelected && <span style={{ fontSize: 10, color: 'var(--teal)', fontWeight: 600 }}>SELECTED</span>}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </Panel>
+          )}
+
+          {/* Floor plan card */}
           <div className="plan-card">
             <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 12, borderBottom: '1px solid var(--border)' }}>
               <div style={{ minWidth: 0 }}>
@@ -144,15 +298,20 @@ export function SchematicScreen() {
                 </div>
               </div>
               <span style={{ flex: 1 }} />
+              {selectedPlan ? (
+                <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)', color: 'var(--text-3)', background: 'var(--bg-alt)', border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px' }}>
+                  {selectedPlan.name} · {fitScore(selectedPlan, state.intake)}% fit · ResPlan
+                </span>
+              ) : null}
               {failed > 0
                 ? <Status kind="fail" label={`${failed} quality fails`} />
                 : <Status kind="passes" label="Quality OK" />}
               <Btn size="sm" icon="refresh">Regenerate</Btn>
-              <Btn size="sm" variant="primary" icon="export">Download SVG</Btn>
+              <Btn size="sm" variant="primary" icon="export">Download</Btn>
             </div>
 
             <div className="plan-svg-wrap">
-              <FloorPlanSVG />
+              {selectedPlan ? <ResPlanImage plan={selectedPlan} /> : <FloorPlanSVG />}
             </div>
 
             <div className="plan-stats">
@@ -162,6 +321,83 @@ export function SchematicScreen() {
               <div className="plan-stat"><div className="plan-stat-l">Status</div><div className="plan-stat-v" style={{ fontFamily: 'var(--font-sans)' }}><Status kind="fail" label="Fails" /></div></div>
             </div>
           </div>
+
+          {/* AI Visualization panel */}
+          <Panel
+            title="AI visualization"
+            sub="fal.ai · conceptual imagery only — not a permit drawing or professional rendering"
+            flush
+          >
+            <div style={{ padding: 14, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {!generatedImages && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <Btn
+                    variant="primary"
+                    icon="refresh"
+                    loading={imagesLoading}
+                    disabled={!selectedPlan || imagesLoading}
+                    onClick={() => run('generateImages')}
+                  >
+                    Generate AI photos
+                  </Btn>
+                  {imagesError && (
+                    <span style={{ fontSize: 11.5, color: 'var(--fail)' }}>
+                      Generation failed — check VITE_FAL_API_KEY
+                    </span>
+                  )}
+                  {!selectedPlan && (
+                    <span style={{ fontSize: 11.5, color: 'var(--text-3)' }}>
+                      Run "Generate schematic plan" first
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {generatedImages && (
+                <>
+                  <ImageGallery images={generatedImages.images} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <Btn
+                      icon="refresh"
+                      onClick={() => {
+                        setState(s => ({ ...s, generatedImages: null, generatedVideo: null }));
+                      }}
+                    >
+                      Regenerate photos
+                    </Btn>
+                    {!generatedVideo && (
+                      <Btn
+                        variant="primary"
+                        icon="send"
+                        loading={videoLoading}
+                        disabled={videoLoading}
+                        onClick={() => run('generateVideo')}
+                      >
+                        Generate walkthrough video
+                      </Btn>
+                    )}
+                    {videoError && (
+                      <span style={{ fontSize: 11.5, color: 'var(--fail)' }}>Video generation failed</span>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {generatedVideo && (
+                <div>
+                  <div className="label" style={{ marginBottom: 6 }}>Walkthrough video</div>
+                  <VideoPlayer
+                    clips={generatedVideo.clips}
+                    posterUrl={generatedImages?.referenceImageUrl}
+                  />
+                </div>
+              )}
+
+              <Banner kind="warning" title="AI-generated conceptual imagery">
+                These images are generated by fal.ai based on style preferences and floor plan metadata. They are not professional renderings, permit drawings, or representations of a real building.
+              </Banner>
+            </div>
+          </Panel>
 
           <Panel title="Room schedule" sub={`${s.rooms.length} rooms · Level 1`} flush>
             <table className="tbl">

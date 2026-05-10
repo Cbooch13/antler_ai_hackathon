@@ -9,7 +9,12 @@ import * as normalize from './api/normalize';
 import * as findLots from './api/findLots';
 import * as feasibility from './api/feasibility';
 import * as plan from './api/plan';
+import { fetchLotGeometry } from './api/lotGeometry';
+import { generateImages } from './api/generateImages';
+import { generateVideo } from './api/generateVideo';
 import * as mock from './data/mock';
+import { loadFloorPlanIndex } from './data/floorplans';
+import { selectPlan, rankPlans } from './api/selectPlan';
 import type { WorkflowState, Screen, JobName, RunStates } from './types';
 
 export const STEPS = [
@@ -37,6 +42,11 @@ const initialState: WorkflowState = {
   selectedLotId: null,
   intake: { ...mock.intakeDefaults },
   conversation: mock.conversationalRequest,
+  selectedPlan: null,
+  planCandidates: [],
+  lotGeometry: null,
+  generatedImages: null,
+  generatedVideo: null,
 };
 
 function urlToScreen(pathname: string): Screen {
@@ -58,12 +68,17 @@ export function WorkspaceShell() {
     setState(s => ({ ...s, screen }));
   }, [location.pathname]);
 
-  // Advance to lot-context when a lot is selected
+  // Advance to lot-context when a lot is selected; also fetch lot geometry
   useEffect(() => {
-    if (state.selectedLotId && state.step < 3) {
-      setState(s => ({ ...s, step: 3 }));
-    }
-  }, [state.selectedLotId, state.step]);
+    if (!state.selectedLotId) return;
+    if (state.step < 3) setState(s => ({ ...s, step: 3 }));
+    const lot = mock.lots.find(l => l.id === state.selectedLotId);
+    if (!lot) return;
+    fetchLotGeometry(lot.address, lot.city).then(geo => {
+      if (geo) setState(s => ({ ...s, lotGeometry: geo }));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.selectedLotId]);
 
   const goTo = useCallback((key: Screen) => {
     const idx = STEPS.findIndex(s => s.key === key);
@@ -103,11 +118,36 @@ export function WorkspaceShell() {
         navigate('/workspace/compliance');
       });
     } else if (job === 'plan') {
-      delay(2200).then(() => plan.run(state.selectedLotId)).then(() => {
-        setRunStates(s => ({ ...s, plan: 'done' }));
-        setState(s => ({ ...s, step: Math.max(s.step, 5) }));
-        navigate('/workspace/schematic');
-      });
+      delay(2200)
+        .then(() => Promise.all([plan.run(state.selectedLotId), loadFloorPlanIndex()]))
+        .then(([, index]) => {
+          const candidates = rankPlans(state.intake, index, 5);
+          const selected = candidates[0] ?? selectPlan(state.intake, index);
+          setRunStates(s => ({ ...s, plan: 'done' }));
+          setState(s => ({ ...s, step: Math.max(s.step, 5), selectedPlan: selected, planCandidates: candidates }));
+          navigate('/workspace/schematic');
+        });
+    } else if (job === 'generateImages') {
+      const lot = mock.lots.find(l => l.id === state.selectedLotId) ?? null;
+      const geo = state.lotGeometry;
+      const selectedPlan = state.selectedPlan;
+      if (!selectedPlan) { setRunStates(s => ({ ...s, generateImages: 'error' })); return; }
+      generateImages(state.intake, selectedPlan, geo ?? null)
+        .then(imageSet => {
+          setRunStates(s => ({ ...s, generateImages: 'done' }));
+          setState(s => ({ ...s, generatedImages: imageSet }));
+        })
+        .catch(() => setRunStates(s => ({ ...s, generateImages: 'error' })));
+      void lot;
+    } else if (job === 'generateVideo') {
+      const images = state.generatedImages?.images;
+      if (!images?.length) { setRunStates(s => ({ ...s, generateVideo: 'error' })); return; }
+      generateVideo(images, state.intake)
+        .then(video => {
+          setRunStates(s => ({ ...s, generateVideo: 'done' }));
+          setState(s => ({ ...s, generatedVideo: video }));
+        })
+        .catch(() => setRunStates(s => ({ ...s, generateVideo: 'error' })));
     }
   }, [state, navigate]);
 
