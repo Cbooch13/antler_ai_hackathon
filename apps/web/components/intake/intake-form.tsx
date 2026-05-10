@@ -242,7 +242,7 @@ export function IntakeForm() {
       <div className="intake-grid">
         <form className="intake-form" onSubmit={handleSubmit(submitSpec)}>
           <div className="form-header">
-            <p className="eyebrow">Stage 4</p>
+            <p className="eyebrow">Stage 1 intake</p>
             <h2>Project Intake</h2>
           </div>
 
