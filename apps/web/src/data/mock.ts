@@ -1,0 +1,297 @@
+import type {
+  Project,
+  Intake,
+  ValidatedContract,
+  Lot,
+  ComplianceData,
+  Schematic,
+  PacketData,
+} from '../types';
+
+export const project: Project = {
+  name: 'Austin ADU feasibility',
+  id: 'PRJ-0247',
+  owner: 'M. Ramirez',
+  updated: 'Today · 2:41 PM',
+};
+
+export const intakeDefaults: Intake = {
+  projectName: 'Austin ADU feasibility',
+  propertyType: 'ADU',
+  riskTolerance: 'Medium',
+  budget: 850000,
+  units: 2,
+  lotSqft: 6500,
+  buildingSqft: 2200,
+  beds: 4,
+  baths: 3,
+  stylePreferences: ['warm modern', 'natural light'],
+};
+
+export const conversationalRequest =
+  'I want an ADU-friendly warm modern home in Austin with 4 beds, 3 baths, 2 units, 2200 sqft house, 6500 lot sqft, and a budget of 850k.';
+
+export const validatedContract: ValidatedContract = {
+  spec: {
+    projectName: 'Austin ADU feasibility',
+    city: 'Austin',
+    state: 'TX',
+    propertyType: 'adu',
+    totalBudgetUsd: 850000,
+    targetLotSqft: 6500,
+    targetBuildingSqft: 2200,
+    bedrooms: 4,
+    bathrooms: 3,
+    units: 2,
+    stylePreferences: ['warm modern', 'natural light'],
+    riskTolerance: 'medium',
+  },
+  missingFields: [],
+  assumptions: [
+    'Structured intake fields validated locally.',
+    "Risk tolerance interpreted as 'medium' for default zoning conservatism.",
+    'Style preferences inferred from conversational request.',
+  ],
+  warnings: [
+    'Conversational request was not normalized through LLM API — using local parser.',
+  ],
+};
+
+export const lots: Lot[] = [
+  {
+    id: 'lot-1',
+    address: '4307 Avenue G',
+    city: 'Austin, TX 78751',
+    neighborhood: 'Hyde Park / Central Austin',
+    price: 825000,
+    lotSqft: 6600,
+    buildingSqft: 2150,
+    beds: 4,
+    baths: 3,
+    units: 2,
+    score: 100,
+    coords: { lat: 30.298, lng: -97.741 },
+    reasons: [
+      'Lot size 6,600 sqft exceeds target 6,500 sqft',
+      'Existing building 2,150 sqft within 2% of 2,200 target',
+      'Zoning estimate compatible with 2-unit ADU configuration',
+      'Hyde Park context favorable for warm-modern infill',
+    ],
+  },
+  {
+    id: 'lot-2',
+    address: '5404 Duval St',
+    city: 'Austin, TX 78751',
+    neighborhood: 'North Loop',
+    price: 1050000,
+    lotSqft: 7400,
+    buildingSqft: null,
+    beds: 3,
+    baths: 2,
+    units: 2,
+    score: 86.42,
+    coords: { lat: 30.314, lng: -97.722 },
+    reasons: [
+      'Lot size 7,400 sqft comfortably exceeds target',
+      'Price 24% over budget — review tradeoffs',
+      'No existing building sqft on record',
+    ],
+  },
+  {
+    id: 'lot-3',
+    address: '1208 E 38th 1/2 St',
+    city: 'Austin, TX 78722',
+    neighborhood: 'Cherrywood',
+    price: 760000,
+    lotSqft: 6100,
+    buildingSqft: 1820,
+    beds: 3,
+    baths: 2,
+    units: 1,
+    score: 78.1,
+    coords: { lat: 30.297, lng: -97.717 },
+    reasons: [
+      'Under budget by ~$90k',
+      'Lot size 6,100 sqft slightly below 6,500 target',
+      'Currently 1 unit; second unit would require new construction',
+    ],
+  },
+  {
+    id: 'lot-4',
+    address: '907 W Mary St',
+    city: 'Austin, TX 78704',
+    neighborhood: 'Bouldin Creek',
+    price: 1180000,
+    lotSqft: 6850,
+    buildingSqft: 1640,
+    beds: 3,
+    baths: 2,
+    units: 1,
+    score: 71.4,
+    coords: { lat: 30.249, lng: -97.76 },
+    reasons: [
+      'Strong lot size match',
+      'Price 39% over budget',
+      'Bouldin Creek demand premium reflected in price',
+    ],
+  },
+  {
+    id: 'lot-5',
+    address: '2613 E 17th St',
+    city: 'Austin, TX 78702',
+    neighborhood: 'East Cesar Chavez',
+    price: 690000,
+    lotSqft: 5980,
+    buildingSqft: 1240,
+    beds: 2,
+    baths: 1,
+    units: 1,
+    score: 64.0,
+    coords: { lat: 30.27, lng: -97.717 },
+    reasons: [
+      'Under budget by ~$160k',
+      'Lot 8% below target — tight fit for 2 units',
+      'Existing building small; teardown likely',
+    ],
+  },
+];
+
+export const compliance: ComplianceData = {
+  findings: 8,
+  needsReview: 6,
+  rows: [
+    { category: 'Lot information', metric: 'Address', value: '4307 Avenue G, Austin, TX 78751', basis: 'known', status: 'passes', confidence: 'low', notes: 'Kaggle static fallback row. Cross-check with Travis County records.' },
+    { category: 'Lot information', metric: 'Part of town', value: 'Hyde Park / Central Austin', basis: 'known', status: 'passes', confidence: 'low', notes: 'Kaggle static fallback row.' },
+    { category: 'Lot information', metric: 'Lot size', value: '6,600 sqft', basis: 'known', status: 'passes', confidence: 'low', notes: 'Target 6,500 sqft. Verify with TCAD parcel records.' },
+    { category: 'Lot information', metric: 'Requested units', value: '2', basis: 'known', status: 'passes', confidence: 'high', notes: 'From user intake.' },
+    { category: 'Lot information', metric: 'Recorded units', value: '2', basis: 'known', status: 'passes', confidence: 'low', notes: 'Static fallback; not entitlement.' },
+    { category: 'Zoning', metric: 'Zoning district', value: 'SF-3 (estimated)', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Official zoning not joined. SF-3 is conservative residential placeholder until Austin FeatureServer query.' },
+    { category: 'Setbacks', metric: 'Front setback', value: '25 ft estimate', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Advisory SF-3-style estimate. Verify against official zoning, lot geometry, compatibility, and overlays.' },
+    { category: 'Setbacks', metric: 'Side setback', value: '5 ft estimate', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Advisory; setbacks vary with use, height, overlays.' },
+    { category: 'Setbacks', metric: 'Rear setback', value: '10 ft estimate', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Advisory; verify with survey.' },
+    { category: 'Building coverage', metric: 'Building square footage', value: '2,150 sqft', basis: 'known', status: 'passes', confidence: 'low', notes: 'Target 2,200 sqft.' },
+    { category: 'Building coverage', metric: 'FAR / building coverage', value: '32.6% existing ratio', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Existing structure ratio only. Allowed FAR/coverage requires official zoning + envelope.' },
+    { category: 'Building coverage', metric: 'Impervious cover', value: '44.6% rough estimate', basis: 'estimated', status: 'warning', confidence: 'low', notes: 'Building footprint plus driveway/patio allowance. Survey required.' },
+    { category: 'Environmental', metric: 'Tree ordinance risk', value: 'Estimate: medium', basis: 'public data pending', status: 'unknown', confidence: 'low', notes: 'Public tree inventory limited to city trees; private protected trees need arborist survey.' },
+    { category: 'Environmental', metric: 'Floodplain / WUI overlays', value: 'Public overlay join pending', basis: 'public data pending', status: 'unknown', confidence: 'low', notes: 'Use parcel coordinates against Austin WUI + FEMA before design decisions.' },
+    { category: 'Permitting', metric: 'Permit history', value: 'Public permit join pending', basis: 'public data pending', status: 'unknown', confidence: 'low', notes: 'Austin permit records via address/parcel match — pending integration.' },
+    { category: 'Public safety', metric: 'Crime statistics', value: 'Public incident join pending', basis: 'public data pending', status: 'unknown', confidence: 'low', notes: 'Recent incident counts by category, not a safety conclusion.' },
+    { category: 'Source', metric: 'Source limitations', value: 'Static fallback dataset', basis: 'known', status: 'warning', confidence: 'high', notes: 'Prototype dataset; not active inventory.' },
+  ],
+  findingsGrouped: {
+    passes: [
+      { title: 'Lot size target', body: 'Static lot size estimate of 6,600 sqft meets the target of 6,500 sqft.' },
+      { title: 'Unit count target', body: "The record's unit count of 2 meets the requested 2 unit target." },
+      { title: 'Requested building sqft within target', body: 'Recorded 2,150 sqft is within 2% of the 2,200 sqft target.' },
+    ],
+    warnings: [
+      { title: 'Advisory feasibility only', body: 'This check is a planning screen, not City of Austin approval, or a substitute for architect/engineer/survey/legal/arborist/city review.' },
+      { title: 'Static fallback data', body: 'This property comes from a static MVP fallback dataset and must not be treated as active inventory.' },
+      { title: 'Setback estimates require official zoning', body: 'Front/side/rear setbacks are SF-3-style placeholders pending official zoning join.' },
+      { title: 'Impervious cover estimated', body: '44.6% rough estimate from footprint plus driveway/patio allowance.' },
+    ],
+    unknowns: [
+      { title: 'Official zoning join required', body: 'No official zoning district has been joined yet; allowed use, setbacks, height, impervious cover, and compatibility cannot be confirmed.' },
+      { title: 'Tree review unknown', body: 'Tree constraints cannot be evaluated until a tree survey or official city tree data is joined.' },
+      { title: 'Floodplain and WUI overlays unknown', body: 'Floodplain and Wildland-Urban Interface overlay impacts are not joined yet and must be verified before design decisions.' },
+      { title: 'Permit history pending', body: 'Austin permit records have not been joined to this prototype row.' },
+    ],
+    fails: [],
+  },
+};
+
+export const schematic: Schematic = {
+  name: 'Primary Feasibility Plan',
+  targetSqft: 2200,
+  units: 2,
+  qualityScore: 62,
+  qualityStatus: 'fails',
+  massing: 'Two-story duplex-style ADU massing sized to 2,200 sf total — one 2BR/1.5BA unit on Level 1, one 2BR/1.5BA unit on Level 2.',
+  revisionNotes: [
+    'Generated by OpenAI structured output; validated through local schematic contract.',
+    'OpenAI revision loop attempt 3 of 3: deterministic quality checker needs another revision.',
+    'Returned best available plan after 3 revision attempts; unresolved quality warnings remain advisory.',
+  ],
+  rooms: [
+    { name: 'Unit A Entry Porch', category: 'Circulation', sqft: 25.5, dim: '3.0 × 8.5 ft', level: 1 },
+    { name: 'Unit A Foyer', category: 'Circulation', sqft: 25.5, dim: '3.0 × 8.5 ft', level: 1 },
+    { name: 'Unit A Living / Dining', category: 'Living', sqft: 153.2, dim: '17.5 × 8.5 ft', level: 1 },
+    { name: 'Unit A Kitchen', category: 'Service', sqft: 70.2, dim: '8.0 × 8.5 ft', level: 1 },
+    { name: 'Unit A Pantry / Laundry', category: 'Service', sqft: 55.3, dim: '9.0 × 6.0 ft', level: 1 },
+    { name: 'Unit A Powder Bath', category: 'Bath', sqft: 34.6, dim: '9.0 × 4.0 ft', level: 1 },
+    { name: 'Unit A Hall', category: 'Circulation', sqft: 45.1, dim: '14.0 × 3.0 ft', level: 1 },
+    { name: 'Unit A Bedroom 1', category: 'Sleeping', sqft: 220.2, dim: '14.5 × 15.0 ft', level: 1 },
+    { name: 'Unit A Bath', category: 'Bath', sqft: 83.0, dim: '9.0 × 9.5 ft', level: 1 },
+    { name: 'Unit A Bedroom 2', category: 'Sleeping', sqft: 260.3, dim: '17.0 × 15.0 ft', level: 1 },
+    { name: 'Mechanical / Storage', category: 'Service', sqft: 69.1, dim: '9.0 × 7.5 ft', level: 1 },
+    { name: 'Exterior Stair to Unit B', category: 'Circulation', sqft: 57.9, dim: '18.0 × 3.0 ft', level: 1 },
+  ],
+  qualityChecks: [
+    { name: 'Area reconciliation', status: 'pass', body: 'Room areas reconcile to the target floor-plan square footage.' },
+    { name: 'Footprint area', status: 'pass', body: 'Footprint dimensions reconcile to the stated floor-plan square footage.' },
+    { name: 'Room bounds', status: 'pass', body: 'All rooms fit inside the normalized floor-plan footprint.' },
+    { name: 'Room overlaps', status: 'pass', body: 'No meaningful room overlaps detected.' },
+    { name: 'Program fit', status: 'fail', body: 'Plan is missing requested program elements: 2 bedroom(s), 1 bath(s).' },
+    { name: 'Room dimensions', status: 'pass', body: 'Room dimensions meet MVP minimum size and proportion assumptions.' },
+    { name: 'Path connectivity', status: 'pass', body: 'All rooms are reachable through the modeled connection graph.' },
+    { name: 'Openings', status: 'pass', body: 'Exterior door and multiple window openings are modeled.' },
+    { name: 'Unit separation', status: 'fail', body: 'Second-unit separation is incomplete and needs geometric/code refinement.' },
+    { name: 'Solar orientation', status: 'pass', body: 'Openings favor the assumed south/east daylight strategy.' },
+  ],
+};
+
+export const packet: PacketData = {
+  groups: [
+    {
+      role: 'Architect',
+      status: 'in-review',
+      notes: 'Reviewing schematic for code-rated unit separation refinement.',
+      documents: [
+        { name: 'Schematic plan SVG', required: true, status: 'ready', file: 'primary-feasibility-plan.svg' },
+        { name: 'Room schedule', required: true, status: 'ready', file: 'room-schedule.csv' },
+        { name: 'Massing diagram', required: false, status: 'missing', file: null },
+      ],
+    },
+    {
+      role: 'Civil Engineer',
+      status: 'blocked',
+      notes: 'Waiting on official survey + impervious cover detail.',
+      documents: [
+        { name: 'Site plan', required: true, status: 'missing', file: null },
+        { name: 'Drainage notes', required: true, status: 'missing', file: null },
+        { name: 'Impervious cover calc', required: true, status: 'draft', file: 'impervious-est-v1.pdf' },
+      ],
+    },
+    {
+      role: 'Surveyor',
+      status: 'not-started',
+      notes: 'No survey on file. TCAD boundary lookup pending.',
+      documents: [
+        { name: 'Boundary survey', required: true, status: 'missing', file: null },
+        { name: 'Tree survey', required: true, status: 'missing', file: null },
+        { name: 'Topographic data', required: false, status: 'missing', file: null },
+      ],
+    },
+    {
+      role: 'Attorney',
+      status: 'in-review',
+      notes: 'Reviewing deed for restrictive covenants.',
+      documents: [
+        { name: 'Deed / title info', required: true, status: 'ready', file: 'deed-4307-aveg.pdf' },
+        { name: 'Restrictive covenant check', required: true, status: 'draft', file: 'covenant-check-v1.pdf' },
+        { name: 'Assumptions log', required: false, status: 'ready', file: 'assumptions.txt' },
+      ],
+    },
+    {
+      role: 'City Official',
+      status: 'not-started',
+      notes: 'Pre-application conversation has not been scheduled.',
+      documents: [
+        { name: 'Zoning confirmation', required: true, status: 'missing', file: null },
+        { name: 'Floodplain / WUI check', required: true, status: 'missing', file: null },
+        { name: 'Tree review (city)', required: true, status: 'missing', file: null },
+        { name: 'Permit history pull', required: false, status: 'missing', file: null },
+      ],
+    },
+  ],
+};
