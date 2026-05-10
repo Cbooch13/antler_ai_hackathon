@@ -3,7 +3,7 @@ import json
 import math
 import os
 import secrets
-from typing import Any
+from typing import Any, Callable
 from xml.sax.saxutils import escape
 
 from realestate_schemas import (
@@ -34,6 +34,7 @@ Rules:
 - Group kitchens, baths, laundry, and ADU wet rooms near wet-wall cores.
 - Keep bedrooms more private than entry/living zones.
 - Use multiple floors only when the program or lot constraints suggest it.
+- When revision feedback is provided, correct failed checks before improving warnings.
 - Do not claim permit readiness or code approval.
 """
 
@@ -300,9 +301,13 @@ class OpenAISchematicDesignAgent:
         self,
         fallback_agent: SchematicDesignAgent | None = None,
         model: str | None = None,
+        client_factory: Callable[[], Any] | None = None,
+        max_attempts: int | None = None,
     ) -> None:
         self.fallback_agent = fallback_agent or SchematicDesignAgent()
         self.model = model or os.getenv("OPENAI_SCHEMATIC_MODEL") or os.getenv("OPENAI_MODEL") or "gpt-5.4"
+        self.client_factory = client_factory
+        self.max_attempts = max_attempts or _llm_schematic_max_attempts()
 
     def generate(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
         if not _llm_schematic_enabled() or not os.getenv("OPENAI_API_KEY"):
@@ -314,35 +319,70 @@ class OpenAISchematicDesignAgent:
             return self.fallback_agent.generate(agent_input)
 
     def _generate_with_openai(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
+        client = self._openai_client()
+        best_options: list[DesignOption] | None = None
+        best_score = -1.0
+        revision_feedback: list[dict[str, Any]] = []
+
+        for attempt in range(1, self.max_attempts + 1):
+            response = client.responses.create(
+                model=self.model,
+                input=[
+                    {"role": "system", "content": SCHEMATIC_AGENT_SYSTEM_PROMPT},
+                    {"role": "user", "content": _llm_prompt(agent_input, revision_feedback)},
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "schematic_design_response",
+                        "schema": _llm_response_schema(),
+                        "strict": True,
+                    }
+                },
+            )
+            options = _options_from_llm_payload(_extract_response_json(response), agent_input)
+            score = _average_quality_score(options)
+            passed = _options_pass_quality(options)
+            _annotate_revision_loop(options, attempt, self.max_attempts, passed)
+            if score > best_score:
+                best_options = options
+                best_score = score
+            if passed:
+                return options
+            revision_feedback = _quality_feedback(options)
+
+        if best_options is None:
+            raise ValueError("OpenAI schematic generation did not return any options")
+        _annotate_best_available(best_options, self.max_attempts)
+        return best_options
+
+    def _openai_client(self) -> Any:
+        if self.client_factory is not None:
+            return self.client_factory()
+
         try:
             from openai import OpenAI
         except ImportError:
-            return self.fallback_agent.generate(agent_input)
+            raise
 
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        response = client.responses.create(
-            model=self.model,
-            input=[
-                {"role": "system", "content": SCHEMATIC_AGENT_SYSTEM_PROMPT},
-                {"role": "user", "content": _llm_prompt(agent_input)},
-            ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "schematic_design_response",
-                    "schema": _llm_response_schema(),
-                    "strict": True,
-                }
-            },
-        )
-        return _options_from_llm_payload(_extract_response_json(response), agent_input)
+        return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def _llm_schematic_enabled() -> bool:
     return os.getenv("LLM_SCHEMATIC_ENABLED", "").lower() in {"1", "true", "yes", "on"}
 
 
-def _llm_prompt(agent_input: SchematicAgentInput) -> str:
+def _llm_schematic_max_attempts() -> int:
+    try:
+        return max(1, min(5, int(os.getenv("LLM_SCHEMATIC_MAX_ATTEMPTS", "3"))))
+    except ValueError:
+        return 3
+
+
+def _llm_prompt(
+    agent_input: SchematicAgentInput,
+    revision_feedback: list[dict[str, Any]] | None = None,
+) -> str:
     spec = agent_input.spec
     warnings = [
         {
@@ -373,6 +413,11 @@ def _llm_prompt(agent_input: SchematicAgentInput) -> str:
             "solar_context": "Austin, Texas: prioritize controlled south/east daylight and reduce unshaded west exposure.",
         },
         "compliance_findings": warnings,
+        "revision_feedback": revision_feedback or [],
+        "revision_instruction": (
+            "If revision_feedback is present, revise the plan JSON to resolve every failing check first, "
+            "then reduce warnings while preserving the user's requested program and total square footage."
+        ),
     }
     return json.dumps(payload, indent=2)
 
@@ -485,6 +530,68 @@ def _options_from_llm_payload(
     if {option.strategy for option in options} != {"human_comfort", "space_utilization"}:
         raise ValueError("LLM did not return required schematic strategies")
     return options
+
+
+def _average_quality_score(options: list[DesignOption]) -> float:
+    reports = [plan.quality_report for option in options for plan in option.floor_plans]
+    if not reports:
+        return 0
+    return sum(report.score for report in reports) / len(reports)
+
+
+def _options_pass_quality(options: list[DesignOption]) -> bool:
+    reports = [plan.quality_report for option in options for plan in option.floor_plans]
+    return bool(reports) and all(
+        not any(check.status == FindingStatus.FAILS for check in report.checks)
+        for report in reports
+    )
+
+
+def _quality_feedback(options: list[DesignOption]) -> list[dict[str, Any]]:
+    feedback: list[dict[str, Any]] = []
+    for option in options:
+        for plan in option.floor_plans:
+            actionable_checks = [
+                {
+                    "code": check.code,
+                    "label": check.label,
+                    "status": check.status.value,
+                    "summary": check.summary,
+                }
+                for check in plan.quality_report.checks
+                if check.status in {FindingStatus.FAILS, FindingStatus.WARNING}
+            ]
+            if actionable_checks:
+                feedback.append(
+                    {
+                        "option": option.strategy,
+                        "plan": plan.name,
+                        "quality_score": plan.quality_report.score,
+                        "quality_status": plan.quality_report.status.value,
+                        "checks_to_fix": actionable_checks,
+                    }
+                )
+    return feedback
+
+
+def _annotate_revision_loop(
+    options: list[DesignOption],
+    attempt: int,
+    max_attempts: int,
+    passed: bool,
+) -> None:
+    status = "accepted" if passed else "needs another revision"
+    for option in options:
+        option.assumptions.append(
+            f"OpenAI revision loop attempt {attempt} of {max_attempts}: deterministic quality checker {status}."
+        )
+
+
+def _annotate_best_available(options: list[DesignOption], max_attempts: int) -> None:
+    for option in options:
+        option.assumptions.append(
+            f"Returned best available OpenAI plan after {max_attempts} revision attempts; unresolved quality warnings remain advisory."
+        )
 
 
 def _floor_from_llm(

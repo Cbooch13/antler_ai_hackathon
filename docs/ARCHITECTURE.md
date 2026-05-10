@@ -177,11 +177,17 @@ Stage 6E is LLM-assisted, generative, and conceptual. It creates option cards, d
 
 Stage 6F adds deterministic floor-plan quality reports to every generated plan. The current checker evaluates area reconciliation, footprint area, room bounds, room overlap, requested program fit, MVP room dimensions, circulation, openings, second-unit separation, and solar-orientation assumptions. These reports are returned in the API and rendered in the website so poor plans are visible instead of hidden behind an SVG.
 
-This is the first tool layer for the agentic loop. The next refinement should feed failing or warning checks back into the LLM Planner Agent before geometry is accepted.
+This is the first tool layer for the agentic loop.
 
-## Stage 6G Agentic Floor-Plan Pipeline
+## Stage 6G Agentic Floor-Plan Revision Loop
 
-Stage 6G should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
+Stage 6G adds the first correction loop around the OpenAI schematic planner. When OpenAI generation is enabled, the design service asks the model for structured layout JSON, converts it into floor plans, runs deterministic quality checks, and then returns failing/warning checks to the model for another attempt. The loop stops when the generated options have no failing quality checks or after `LLM_SCHEMATIC_MAX_ATTEMPTS` attempts. If no attempt fully passes, the service returns the highest-scoring advisory result with assumptions noting that unresolved warnings remain.
+
+The local generator remains a single-pass fallback so the app can run without an API key.
+
+## Stage 6H Agentic Floor-Plan Pipeline
+
+Stage 6H should replace direct plan-shape generation with a structured planner/refiner/renderer pipeline. The core architectural decision is that LLMs reason over structured layout JSON and graph constraints, while deterministic code owns geometry, validation, and rendering.
 
 ```text
 User brief + selected lot + compliance findings + sun/context metadata

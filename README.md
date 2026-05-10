@@ -12,13 +12,13 @@ The system combines:
 
 ## Stage Gate
 
-Current implementation target: **Stage 6F - Floor-Plan Quality Validation**.
+Current implementation target: **Stage 6G - Agentic Floor-Plan Revision Loop**.
 
-Stage 6F provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, deterministic floor-plan quality reports, and tests. Future stages should be implemented only after review.
+Stage 6G provides the repository structure, architecture/spec docs, shared schemas, API health route, deterministic compliance rules, env template, typed intake form, normalization endpoint, Austin Socrata/ArcGIS ingestion clients, normalized permit/GIS records, static MVP listing fallback, lot ranking, selected-lot context, map links, advisory compliance feasibility checks, a compliance metrics table, an optional OpenAI-backed schematic design agent, human-comfort and space-utilization concept plans, dimensioned architectural-style floor-plan renderings, SVG visual exports, deterministic floor-plan quality reports, OpenAI revision-loop feedback, and tests. Future stages should be implemented only after review.
 
-Next planning target: **Stage 6G - Agentic Floor-Plan Revision Loop**.
+Next planning target: **Stage 6H - Structured Geometry Refiner**.
 
-Stage 6G should build on the Stage 6F quality report by feeding deterministic constraint failures back into the LLM Planner Agent before geometry is finalized.
+Stage 6H should replace grid placement with a structured geometry refiner that converts room graphs into coherent room/wall layouts before rendering.
 
 Each stage must end with:
 
@@ -50,6 +50,7 @@ Optional LLM schematic generation:
 OPENAI_API_KEY=...
 OPENAI_SCHEMATIC_MODEL=gpt-5.4
 LLM_SCHEMATIC_ENABLED=true
+LLM_SCHEMATIC_MAX_ATTEMPTS=3
 ```
 
 When `LLM_SCHEMATIC_ENABLED` is unset or false, the API uses the local schematic generator.
@@ -96,7 +97,7 @@ curl -X POST "http://127.0.0.1:8000/compliance/evaluate" \
   -d '{"spec":{"projectName":"ADU search","city":"Austin","state":"TX","propertyType":"adu","totalBudgetUsd":850000,"targetLotSqft":6500,"targetBuildingSqft":2200,"bedrooms":4,"bathrooms":3,"units":2,"stylePreferences":[],"riskTolerance":"medium"},"listingId":"kaggle-austin-001"}'
 ```
 
-Stage 6F schematic options endpoint:
+Stage 6G schematic options endpoint:
 
 ```bash
 curl -X POST "http://127.0.0.1:8000/design/schematics" \
