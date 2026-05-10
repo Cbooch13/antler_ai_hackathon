@@ -499,6 +499,10 @@ export function IntakeForm() {
                       <strong>{plan.name}</strong>
                       <span>{plan.totalSqft.toLocaleString()} sqft</span>
                     </div>
+                    <p>
+                      Footprint: {plan.footprintWidthFt.toFixed(1)} ft x{" "}
+                      {plan.footprintDepthFt.toFixed(1)} ft · {plan.scaleAssumption}
+                    </p>
                     <svg
                       className="floor-plan-grid"
                       aria-label={`${plan.name} conceptual architectural plan`}
@@ -521,7 +525,7 @@ export function IntakeForm() {
                             {room.name}
                           </text>
                           <text x={room.x + room.width / 2} y={room.y + room.height / 2 + 5}>
-                            {room.estimatedSqft.toLocaleString()} sf
+                            {room.widthFt.toFixed(1)} ft x {room.depthFt.toFixed(1)} ft
                           </text>
                         </g>
                       ))}
@@ -549,10 +553,25 @@ export function IntakeForm() {
                     <div className="room-list">
                       {plan.rooms.map((room) => (
                         <span key={`${plan.planId}-${room.roomId}`}>
-                          {room.name}: {room.estimatedSqft.toLocaleString()} sqft
+                          {room.name}: {room.estimatedSqft.toLocaleString()} sqft ·{" "}
+                          {room.widthFt.toFixed(1)} ft x {room.depthFt.toFixed(1)} ft
                         </span>
                       ))}
                     </div>
+                    <div className="context-links">
+                      {plan.visualExports.map((visual) => (
+                        <a
+                          download={`${visual.exportId}.svg`}
+                          href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(visual.content)}`}
+                          key={visual.exportId}
+                        >
+                          Download {visual.label}
+                        </a>
+                      ))}
+                    </div>
+                    {Math.abs(plan.sqftDelta) > 0.01 ? (
+                      <p>Square-footage reconciliation delta: {plan.sqftDelta.toFixed(2)} sqft.</p>
+                    ) : null}
                     {plan.notes.map((note) => (
                       <p key={note}>{note}</p>
                     ))}

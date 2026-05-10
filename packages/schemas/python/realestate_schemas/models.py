@@ -255,6 +255,8 @@ class FloorPlanRoom(ContractModel):
     name: str = Field(min_length=1)
     category: str = Field(min_length=1)
     estimated_sqft: PositiveFloat
+    width_ft: PositiveFloat
+    depth_ft: PositiveFloat
     x: float = Field(ge=0, le=100)
     y: float = Field(ge=0, le=100)
     width: float = Field(gt=0, le=100)
@@ -279,14 +281,27 @@ class FloorPlanOpening(ContractModel):
     opening_type: str = Field(default="door")
 
 
+class GeneratedVisualExport(ContractModel):
+    export_id: str = Field(min_length=1)
+    label: str = Field(min_length=1)
+    format: str = Field(pattern="^svg$")
+    content: str = Field(min_length=1)
+    notes: list[str] = Field(default_factory=list)
+
+
 class FloorPlan(ContractModel):
     plan_id: str = Field(min_length=1)
     name: str = Field(min_length=1)
     level: str = Field(min_length=1)
     total_sqft: PositiveFloat
+    footprint_width_ft: PositiveFloat
+    footprint_depth_ft: PositiveFloat
+    scale_assumption: str = Field(min_length=1)
+    sqft_delta: float = Field(default=0)
     rooms: list[FloorPlanRoom] = Field(default_factory=list)
     walls: list[FloorPlanWall] = Field(default_factory=list)
     openings: list[FloorPlanOpening] = Field(default_factory=list)
+    visual_exports: list[GeneratedVisualExport] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)
 
 

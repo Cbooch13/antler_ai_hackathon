@@ -12,6 +12,7 @@ from realestate_schemas import (
     FloorPlanOpening,
     FloorPlanRoom,
     FloorPlanWall,
+    GeneratedVisualExport,
     Listing,
     ListingSourceMode,
     MapContext,
@@ -103,10 +104,13 @@ def test_core_json_schema_exports_stage_zero_contracts() -> None:
     assert "FloorPlanOpening" in schema["$defs"]
     assert "FloorPlanRoom" in schema["$defs"]
     assert "FloorPlanWall" in schema["$defs"]
+    assert "GeneratedVisualExport" in schema["$defs"]
     assert "basis" in schema["$defs"]["ComplianceMetric"]["required"]
     assert "floorPlans" in schema["$defs"]["DesignOption"]["required"]
     assert "walls" in schema["$defs"]["FloorPlan"]["required"]
     assert "openings" in schema["$defs"]["FloorPlan"]["required"]
+    assert "scaleAssumption" in schema["$defs"]["FloorPlan"]["required"]
+    assert "visualExports" in schema["$defs"]["FloorPlan"]["required"]
 
 
 def test_permit_record_preserves_raw_payload_and_source_metadata() -> None:
@@ -179,6 +183,8 @@ def test_design_option_contract_supports_floor_plans() -> None:
                         name="Living / dining",
                         category="living",
                         estimatedSqft=484,
+                        widthFt=22,
+                        depthFt=22,
                         x=0,
                         y=0,
                         width=42,
@@ -205,6 +211,19 @@ def test_design_option_contract_supports_floor_plans() -> None:
                         openingType="door",
                     )
                 ],
+                footprintWidthFt=55,
+                footprintDepthFt=40,
+                scaleAssumption="Concept scale: 1 SVG unit = 0.55 ft horizontally.",
+                sqftDelta=0,
+                visualExports=[
+                    GeneratedVisualExport(
+                        exportId="floor-plan-balanced-svg",
+                        label="Architectural concept SVG",
+                        format="svg",
+                        content="<svg></svg>",
+                        notes=["Conceptual export."],
+                    )
+                ],
                 notes=["Conceptual block plan only."],
             )
         ],
@@ -212,6 +231,9 @@ def test_design_option_contract_supports_floor_plans() -> None:
 
     payload = option.model_dump(by_alias=True)
     assert payload["floorPlans"][0]["rooms"][0]["estimatedSqft"] == 484
+    assert payload["floorPlans"][0]["rooms"][0]["widthFt"] == 22
+    assert payload["floorPlans"][0]["scaleAssumption"].startswith("Concept scale")
+    assert payload["floorPlans"][0]["visualExports"][0]["format"] == "svg"
     assert payload["floorPlans"][0]["walls"][0]["wallType"] == "exterior"
     assert payload["floorPlans"][0]["openings"][0]["openingType"] == "door"
 

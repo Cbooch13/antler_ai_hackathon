@@ -44,7 +44,7 @@ describe("userBuildSpecSchema", () => {
 });
 
 describe("designGenerationResponseSchema", () => {
-  it("accepts deterministic schematic options", () => {
+  it("accepts generated schematic options with visual exports", () => {
     const result = designGenerationResponseSchema.safeParse({
       listing: {
         listingId: "kaggle-austin-001",
@@ -74,12 +74,18 @@ describe("designGenerationResponseSchema", () => {
               name: "Balanced Ground Floor",
               level: "Level 1",
               totalSqft: 2200,
+              footprintWidthFt: 55,
+              footprintDepthFt: 40,
+              scaleAssumption: "Concept scale: 1 SVG unit = 0.55 ft horizontally.",
+              sqftDelta: 0,
               rooms: [
                 {
                   roomId: "living",
                   name: "Living / dining",
                   category: "living",
                   estimatedSqft: 484,
+                  widthFt: 22,
+                  depthFt: 22,
                   x: 0,
                   y: 0,
                   width: 42,
@@ -104,6 +110,15 @@ describe("designGenerationResponseSchema", () => {
                   width: 8,
                   orientation: "horizontal",
                   openingType: "door"
+                }
+              ],
+              visualExports: [
+                {
+                  exportId: "floor-plan-balanced-svg",
+                  label: "Architectural concept SVG",
+                  format: "svg",
+                  content: "<svg></svg>",
+                  notes: ["Conceptual export."]
                 }
               ],
               notes: ["Conceptual block plan only."]

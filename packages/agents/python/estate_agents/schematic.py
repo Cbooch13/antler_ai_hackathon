@@ -1,4 +1,7 @@
 from dataclasses import dataclass
+import math
+import secrets
+from xml.sax.saxutils import escape
 
 from realestate_schemas import (
     ComplianceFinding,
@@ -7,6 +10,7 @@ from realestate_schemas import (
     FloorPlanOpening,
     FloorPlanRoom,
     FloorPlanWall,
+    GeneratedVisualExport,
     UserBuildSpec,
 )
 
@@ -17,251 +21,352 @@ class SchematicAgentInput:
     warning_findings: list[ComplianceFinding]
 
 
+@dataclass(frozen=True)
+class RoomLayout:
+    room_id: str
+    name: str
+    category: str
+    x: float
+    y: float
+    width: float
+    height: float
+
+
 class SchematicDesignAgent:
-    """Deterministic schematic agent for concept-level architectural plans."""
+    """Generative schematic agent for concept-level architectural plans."""
+
+    def __init__(self, rng: secrets.SystemRandom | None = None) -> None:
+        self.rng = rng or secrets.SystemRandom()
 
     def generate(self, agent_input: SchematicAgentInput) -> list[DesignOption]:
         spec = agent_input.spec
-        comfort_sqft = _scaled_sqft(spec.target_building_sqft, 1.0)
-        efficient_sqft = _scaled_sqft(spec.target_building_sqft, 0.9)
+        target_sqft = _target_sqft(spec)
+        variant_id = secrets.token_hex(4)
 
         return [
             DesignOption(
-                option_id="schematic-human-comfort",
+                option_id=f"schematic-human-comfort-{variant_id}",
                 name="Human Comfort Plan",
                 strategy="human_comfort",
-                target_building_sqft=comfort_sqft,
+                target_building_sqft=target_sqft,
                 units=spec.units,
                 floor_plans=[
-                    _comfort_plan(
+                    self._plan(
                         spec=spec,
-                        total_sqft=comfort_sqft,
+                        strategy="human_comfort",
+                        plan_id=f"floor-plan-human-comfort-{variant_id}",
+                        name="Human Comfort Ground Floor",
+                        total_sqft=target_sqft,
+                        aspect_ratio=self.rng.uniform(1.42, 1.68),
+                        layouts=self._comfort_layouts(spec),
+                        notes=[
+                            "Generated concept prioritizes daylight, generous public rooms, storage, and a legible public-to-private transition.",
+                            "Room dimensions are rounded planning assumptions; architect review is required for measured drawings.",
+                        ],
                     )
                 ],
                 assumptions=[
-                    "Prioritizes daylight, room separation, storage, and a clear public-to-private transition.",
-                    "Keeps bedrooms away from the main entry and wet rooms grouped for buildability.",
-                    "Best review path when livability and resale comfort are more important than maximum density.",
+                    "Prioritizes comfort, daylight, room separation, storage, and a clear entry sequence.",
+                    "Groups wet rooms for buildability while keeping bedrooms buffered from the main entry.",
+                    "Uses the full requested building program; room areas are reconciled to the target square footage.",
                 ],
                 compliance_findings=agent_input.warning_findings,
             ),
             DesignOption(
-                option_id="schematic-space-utilization",
+                option_id=f"schematic-space-utilization-{variant_id}",
                 name="Space Utilization Plan",
                 strategy="space_utilization",
-                target_building_sqft=efficient_sqft,
+                target_building_sqft=target_sqft,
                 units=spec.units,
                 floor_plans=[
-                    _space_utilization_plan(
+                    self._plan(
                         spec=spec,
-                        total_sqft=efficient_sqft,
+                        strategy="space_utilization",
+                        plan_id=f"floor-plan-space-utilization-{variant_id}",
+                        name="Space Utilization Ground Floor",
+                        total_sqft=target_sqft,
+                        aspect_ratio=self.rng.uniform(1.55, 1.9),
+                        layouts=self._space_utilization_layouts(spec),
+                        notes=[
+                            "Generated concept compresses circulation and stacks wet rooms to improve usable-area efficiency.",
+                            "Tighter planning increases the need to verify egress, clearances, structure, and utilities.",
+                        ],
                     )
                 ],
                 assumptions=[
-                    "Prioritizes compact circulation, stacked wet areas, and flexible rooms.",
-                    "Uses a tighter footprint to preserve site area for setbacks, trees, drainage, and parking.",
-                    "Best review path when construction efficiency and entitlement flexibility matter most.",
+                    "Optimizes usable program area through compact circulation and flexible rooms.",
+                    "Keeps second-unit access legible while minimizing duplicated service area.",
+                    "Uses the full requested building program; room areas are reconciled to the target square footage.",
                 ],
                 compliance_findings=agent_input.warning_findings,
             ),
         ]
 
+    def _plan(
+        self,
+        spec: UserBuildSpec,
+        strategy: str,
+        plan_id: str,
+        name: str,
+        total_sqft: float,
+        aspect_ratio: float,
+        layouts: list[RoomLayout],
+        notes: list[str],
+    ) -> FloorPlan:
+        footprint_width_ft = math.sqrt(total_sqft * aspect_ratio)
+        footprint_depth_ft = total_sqft / footprint_width_ft
+        rooms = _rooms_from_layouts(layouts, total_sqft, footprint_width_ft, footprint_depth_ft)
+        sqft_delta = round(total_sqft - sum(room.estimated_sqft for room in rooms), 2)
+        if rooms and abs(sqft_delta) >= 0.01:
+            last = rooms[-1]
+            rooms[-1] = last.model_copy(
+                update={"estimated_sqft": max(35, round(last.estimated_sqft + sqft_delta, 2))}
+            )
+            sqft_delta = round(total_sqft - sum(room.estimated_sqft for room in rooms), 2)
 
-def _comfort_plan(spec: UserBuildSpec, total_sqft: float) -> FloorPlan:
-    bedrooms = max(1, min(spec.bedrooms or 3, 4))
-    bathrooms = max(1, min(round(spec.bathrooms or 2), 3))
-    rooms = [
-        _room("porch", "Covered entry", "entry", total_sqft * 0.035, 0, 0, 16, 18),
-        _room("living", "Living", "living", total_sqft * 0.18, 16, 0, 32, 32),
-        _room("dining", "Dining", "living", total_sqft * 0.08, 48, 0, 18, 32),
-        _room("kitchen", "Kitchen", "kitchen", total_sqft * 0.11, 66, 0, 20, 32),
-        _room("utility", "Laundry / pantry", "service", total_sqft * 0.045, 86, 0, 14, 20),
-        _room("hall", "Bedroom hall", "circulation", total_sqft * 0.07, 40, 32, 12, 68),
-        _room("primary-bed", "Primary bedroom", "bedroom", total_sqft * 0.14, 52, 52, 28, 32),
-        _room("primary-bath", "Primary bath", "bath", total_sqft * 0.06, 80, 52, 20, 18),
-        _room("storage", "Storage", "service", total_sqft * 0.035, 80, 70, 20, 14),
-    ]
-    rooms.extend(
-        _bedroom_group(
-            bedrooms=bedrooms - 1,
-            bathrooms=max(0, bathrooms - 1),
+        walls = _walls()
+        openings = self._openings(strategy)
+        scale_assumption = (
+            f"Concept scale: 1 SVG plan unit = {footprint_width_ft / 100:.2f} ft horizontally "
+            f"and {footprint_depth_ft / 100:.2f} ft vertically; dimensions rounded to 0.5 ft."
+        )
+        svg = _svg_export(
+            title=name,
             total_sqft=total_sqft,
-            start_y=32,
+            width_ft=footprint_width_ft,
+            depth_ft=footprint_depth_ft,
+            rooms=rooms,
+            walls=walls,
+            openings=openings,
+            scale_assumption=scale_assumption,
         )
-    )
-    if spec.units > 1:
-        rooms.extend(
-            [
-                _room("adu-living", "ADU living / sleep", "unit", total_sqft * 0.12, 0, 70, 28, 30),
-                _room("adu-kitchen", "ADU kitchenette", "kitchen", total_sqft * 0.035, 28, 70, 12, 15),
-                _room("adu-bath", "ADU bath", "bath", total_sqft * 0.035, 28, 85, 12, 15),
+        return FloorPlan(
+            plan_id=plan_id,
+            name=name,
+            level="Level 1",
+            total_sqft=total_sqft,
+            footprint_width_ft=round(footprint_width_ft, 1),
+            footprint_depth_ft=round(footprint_depth_ft, 1),
+            scale_assumption=scale_assumption,
+            sqft_delta=sqft_delta,
+            rooms=rooms,
+            walls=walls,
+            openings=openings,
+            visual_exports=[
+                GeneratedVisualExport(
+                    export_id=f"{plan_id}-svg",
+                    label="Architectural concept SVG",
+                    format="svg",
+                    content=svg,
+                    notes=[
+                        "Generated SVG export is conceptual and suitable for product review only.",
+                        "Not a permit drawing, measured CAD file, or professional architectural deliverable.",
+                    ],
+                )
+            ],
+            notes=notes
+            + [
+                f"Requested program: {spec.bedrooms or 'unspecified'} bedrooms, {spec.bathrooms or 'unspecified'} bathrooms, {spec.units} unit(s).",
+                "Generated room areas reconcile to the total plan square footage; room geometry is conceptual.",
+            ],
+        )
+
+    def _comfort_layouts(self, spec: UserBuildSpec) -> list[RoomLayout]:
+        public_h = self.rng.uniform(32, 37)
+        adu_h = self.rng.uniform(22, 28) if spec.units > 1 else 0
+        private_h = 100 - public_h - adu_h
+        bedrooms = max(1, min(spec.bedrooms or 3, 4))
+        bathrooms = max(1, min(round(spec.bathrooms or 2), 3))
+        rooms = [
+            _layout("entry", "Covered entry", "entry", 0, 0, 13, public_h),
+            _layout("living", "Living", "living", 13, 0, 31, public_h),
+            _layout("dining", "Dining", "living", 44, 0, 17, public_h),
+            _layout("kitchen", "Kitchen", "kitchen", 61, 0, 24, public_h),
+            _layout("service", "Laundry / pantry", "service", 85, 0, 15, public_h),
+            _layout("primary-bed", "Primary bedroom", "bedroom", 62, public_h, 24, private_h * 0.62),
+            _layout("primary-bath", "Primary bath", "bath", 86, public_h, 14, private_h * 0.34),
+            _layout("storage", "Storage", "service", 86, public_h + private_h * 0.34, 14, private_h * 0.28),
+            _layout("hall", "Bedroom hall", "circulation", 36, public_h, 10, private_h),
+            _layout("linen-mech", "Linen / mechanical", "service", 46, public_h, 16, private_h),
+            _layout("primary-closet", "Primary closet / flex", "flex", 62, public_h + private_h * 0.62, 38, private_h * 0.38),
+        ]
+        main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
+        rooms.extend(_private_bed_bath_layouts(bedrooms - 1, main_secondary_baths, public_h, private_h))
+        if spec.units > 1:
+            rooms.extend(
+                [
+                    _layout("adu-living", "ADU living / sleep", "unit", 0, 100 - adu_h, 58, adu_h),
+                    _layout("adu-kitchen", "ADU kitchenette", "kitchen", 58, 100 - adu_h, 22, adu_h),
+                    _layout("adu-bath", "ADU bath", "bath", 80, 100 - adu_h, 20, adu_h),
+                ]
+            )
+        else:
+            rooms.append(_layout("flex", "Flex / office", "flex", 46, public_h + private_h * 0.62, 54, private_h * 0.38))
+        return rooms
+
+    def _space_utilization_layouts(self, spec: UserBuildSpec) -> list[RoomLayout]:
+        public_h = self.rng.uniform(28, 33)
+        gallery_h = self.rng.uniform(8, 11)
+        adu_h = self.rng.uniform(24, 30) if spec.units > 1 else 0
+        private_y = public_h + gallery_h
+        private_h = 100 - private_y - adu_h
+        bedrooms = max(1, min(spec.bedrooms or 3, 4))
+        bathrooms = max(1, min(round(spec.bathrooms or 2), 3))
+        rooms = [
+            _layout("entry", "Entry / mudroom", "entry", 0, 0, 12, public_h),
+            _layout("great-room", "Great room", "living", 12, 0, 41, public_h),
+            _layout("kitchen", "Kitchen wall", "kitchen", 53, 0, 26, public_h),
+            _layout("wet-core", "Bath / laundry core", "bath", 79, 0, 21, public_h),
+            _layout("gallery", "Gallery hall", "circulation", 0, public_h, 100, gallery_h),
+            _layout("primary-bed", "Primary bedroom", "bedroom", 66, private_y, 34, private_h * 0.7),
+            _layout("primary-bath", "Primary bath", "bath", 66, private_y + private_h * 0.7, 17, private_h * 0.3),
+            _layout("flex", "Flex / office", "flex", 83, private_y + private_h * 0.7, 17, private_h * 0.3),
+            _layout("storage-core", "Storage / mechanical", "service", 0, private_y + private_h * 0.68, 44, private_h * 0.32),
+        ]
+        main_secondary_baths = max(0, bathrooms - 1 - (1 if spec.units > 1 else 0))
+        rooms.extend(_efficient_bed_bath_layouts(bedrooms - 1, main_secondary_baths, private_y, private_h))
+        if spec.units > 1:
+            rooms.extend(
+                [
+                    _layout("adu-studio", "ADU studio", "unit", 0, 100 - adu_h, 58, adu_h),
+                    _layout("adu-galley", "ADU galley", "kitchen", 58, 100 - adu_h, 21, adu_h),
+                    _layout("adu-wet-room", "ADU wet room", "bath", 79, 100 - adu_h, 21, adu_h),
+                ]
+            )
+        return rooms
+
+    def _openings(self, strategy: str) -> list[FloorPlanOpening]:
+        if strategy == "human_comfort":
+            return [
+                _opening("front-door", 5, 0, 8, "horizontal", "door"),
+                _opening("rear-door", 92, 100, 8, "horizontal", "door"),
+                _opening("living-window", 21, 0, 16, "horizontal", "window"),
+                _opening("kitchen-window", 68, 0, 12, "horizontal", "window"),
+                _opening("bedroom-window", 8, 100, 14, "horizontal", "window"),
+                _opening("primary-window", 70, 100, 16, "horizontal", "window"),
             ]
-        )
-
-    return FloorPlan(
-        plan_id="floor-plan-human-comfort",
-        name="Human Comfort Ground Floor",
-        level="Level 1",
-        total_sqft=total_sqft,
-        rooms=rooms,
-        walls=_comfort_walls(),
-        openings=_comfort_openings(),
-        notes=[
-            "Conceptual diagram uses standard adjacency logic: public rooms at entry, bedrooms buffered, wet rooms grouped.",
-            "Exterior proportions, structural grid, egress, accessibility, MEP, and code compliance require professional design.",
-        ],
-    )
+        return [
+            _opening("front-door", 4, 0, 8, "horizontal", "door"),
+            _opening("side-door", 0, 84, 10, "vertical", "door"),
+            _opening("great-room-window", 22, 0, 18, "horizontal", "window"),
+            _opening("kitchen-window", 59, 0, 12, "horizontal", "window"),
+            _opening("primary-window", 77, 100, 16, "horizontal", "window"),
+        ]
 
 
-def _space_utilization_plan(spec: UserBuildSpec, total_sqft: float) -> FloorPlan:
-    bedrooms = max(1, min(spec.bedrooms or 3, 4))
-    bathrooms = max(1, min(round(spec.bathrooms or 2), 3))
-    rooms = [
-        _room("entry", "Entry / mudroom", "entry", total_sqft * 0.035, 0, 0, 14, 18),
-        _room("great-room", "Great room", "living", total_sqft * 0.2, 14, 0, 38, 32),
-        _room("kitchen", "Kitchen wall", "kitchen", total_sqft * 0.1, 52, 0, 24, 32),
-        _room("wet-core", "Bath / laundry core", "bath", total_sqft * 0.09, 76, 0, 24, 32),
-        _room("gallery", "Gallery hall", "circulation", total_sqft * 0.05, 0, 32, 100, 12),
-        _room("primary-bed", "Primary bedroom", "bedroom", total_sqft * 0.12, 66, 44, 34, 28),
-        _room("primary-bath", "Primary bath", "bath", total_sqft * 0.045, 66, 72, 17, 28),
-        _room("flex", "Flex / office", "flex", total_sqft * 0.06, 83, 72, 17, 28),
-    ]
-    rooms.extend(_efficient_bedrooms(bedrooms - 1, bathrooms - 1, total_sqft))
-    if spec.units > 1:
-        rooms.extend(
-            [
-                _room("adu-studio", "ADU studio", "unit", total_sqft * 0.11, 0, 72, 28, 28),
-                _room("adu-bath", "ADU wet room", "bath", total_sqft * 0.03, 28, 72, 12, 14),
-                _room("adu-kitchen", "ADU galley", "kitchen", total_sqft * 0.03, 28, 86, 12, 14),
-            ]
-        )
-
-    return FloorPlan(
-        plan_id="floor-plan-space-utilization",
-        name="Space Utilization Ground Floor",
-        level="Level 1",
-        total_sqft=total_sqft,
-        rooms=rooms,
-        walls=_efficient_walls(),
-        openings=_efficient_openings(),
-        notes=[
-            "Conceptual diagram minimizes hallway area and stacks wet rooms to reduce cost and footprint.",
-            "Tighter planning increases the need to verify room dimensions, egress, accessibility, structure, and utilities.",
-        ],
-    )
+def _target_sqft(spec: UserBuildSpec) -> float:
+    return max(400, round(spec.target_building_sqft or 1_800))
 
 
-def _bedroom_group(
+def _layout(
+    room_id: str,
+    name: str,
+    category: str,
+    x: float,
+    y: float,
+    width: float,
+    height: float,
+) -> RoomLayout:
+    return RoomLayout(room_id=room_id, name=name, category=category, x=x, y=y, width=width, height=height)
+
+
+def _private_bed_bath_layouts(
     bedrooms: int,
     bathrooms: int,
-    total_sqft: float,
-    start_y: float,
-) -> list[FloorPlanRoom]:
-    rooms: list[FloorPlanRoom] = []
-    bedroom_slots = [(0, start_y, 20, 24), (20, start_y, 20, 24), (0, start_y + 24, 20, 22)]
+    y: float,
+    height: float,
+) -> list[RoomLayout]:
+    layouts: list[RoomLayout] = []
+    bedroom_slots = [(0, y, 18, height * 0.5), (18, y, 18, height * 0.5), (0, y + height * 0.5, 18, height * 0.5)]
     for index in range(min(bedrooms, len(bedroom_slots))):
-        x, y, width, height = bedroom_slots[index]
-        rooms.append(
-            _room(
-                f"bedroom-{index + 2}",
-                f"Bedroom {index + 2}",
-                "bedroom",
-                total_sqft * 0.09,
-                x,
-                y,
-                width,
-                height,
-            )
-        )
-    bath_slots = [(20, start_y + 24, 20, 16), (20, start_y + 40, 20, 14)]
+        x, slot_y, width, slot_h = bedroom_slots[index]
+        layouts.append(_layout(f"bedroom-{index + 2}", f"Bedroom {index + 2}", "bedroom", x, slot_y, width, slot_h))
+    bath_slots = [(18, y + height * 0.5, 18, height * 0.28), (18, y + height * 0.78, 18, height * 0.22)]
     for index in range(min(bathrooms, len(bath_slots))):
-        x, y, width, height = bath_slots[index]
-        rooms.append(
-            _room(
-                f"bath-{index + 2}",
-                f"Bath {index + 2}",
-                "bath",
-                total_sqft * 0.04,
+        x, slot_y, width, slot_h = bath_slots[index]
+        layouts.append(_layout(f"bath-{index + 2}", f"Bath {index + 2}", "bath", x, slot_y, width, slot_h))
+    for index in range(min(bathrooms, len(bath_slots)), len(bath_slots)):
+        x, slot_y, width, slot_h = bath_slots[index]
+        layouts.append(
+            _layout(
+                f"secondary-storage-{index + 1}",
+                "Secondary storage",
+                "service",
                 x,
-                y,
+                slot_y,
                 width,
-                height,
+                slot_h,
             )
         )
-    return rooms
+    return layouts
 
 
-def _efficient_bedrooms(
+def _efficient_bed_bath_layouts(
     bedrooms: int,
     bathrooms: int,
-    total_sqft: float,
-) -> list[FloorPlanRoom]:
-    rooms: list[FloorPlanRoom] = []
-    bedroom_slots = [(0, 44, 22, 28), (22, 44, 22, 28), (44, 44, 22, 28)]
-    for index in range(min(bedrooms, len(bedroom_slots))):
-        x, y, width, height = bedroom_slots[index]
-        rooms.append(
-            _room(
+    y: float,
+    height: float,
+) -> list[RoomLayout]:
+    layouts: list[RoomLayout] = []
+    bed_width = 66 / max(1, min(bedrooms, 3))
+    for index in range(min(bedrooms, 3)):
+        layouts.append(
+            _layout(
                 f"bedroom-{index + 2}",
                 f"Bedroom {index + 2}",
                 "bedroom",
-                total_sqft * 0.085,
-                x,
+                index * bed_width,
                 y,
-                width,
-                height,
+                bed_width,
+                height * 0.68,
             )
         )
     if bathrooms > 0:
-        rooms.append(_room("shared-bath", "Shared bath", "bath", total_sqft * 0.04, 44, 72, 22, 28))
+        layouts.append(_layout("shared-bath", "Shared bath", "bath", 44, y + height * 0.68, 22, height * 0.32))
+    else:
+        layouts.append(
+            _layout("shared-storage", "Shared storage", "service", 44, y + height * 0.68, 22, height * 0.32)
+        )
+    return layouts
+
+
+def _rooms_from_layouts(
+    layouts: list[RoomLayout],
+    total_sqft: float,
+    footprint_width_ft: float,
+    footprint_depth_ft: float,
+) -> list[FloorPlanRoom]:
+    rooms: list[FloorPlanRoom] = []
+    for layout in layouts:
+        width_ft = footprint_width_ft * layout.width / 100
+        depth_ft = footprint_depth_ft * layout.height / 100
+        estimated_sqft = total_sqft * (layout.width * layout.height / 10_000)
+        rooms.append(
+            FloorPlanRoom(
+                room_id=layout.room_id,
+                name=layout.name,
+                category=layout.category,
+                estimated_sqft=round(estimated_sqft, 2),
+                width_ft=round(width_ft * 2) / 2,
+                depth_ft=round(depth_ft * 2) / 2,
+                x=round(layout.x, 2),
+                y=round(layout.y, 2),
+                width=round(layout.width, 2),
+                height=round(layout.height, 2),
+            )
+        )
     return rooms
 
 
-def _comfort_walls() -> list[FloorPlanWall]:
+def _walls() -> list[FloorPlanWall]:
     return [
         _wall("north", 0, 0, 100, 0, "exterior"),
         _wall("east", 100, 0, 100, 100, "exterior"),
         _wall("south", 100, 100, 0, 100, "exterior"),
         _wall("west", 0, 100, 0, 0, "exterior"),
-        _wall("public-private", 0, 32, 100, 32),
-        _wall("bedroom-hall-west", 40, 32, 40, 100),
-        _wall("bedroom-hall-east", 52, 32, 52, 100),
-        _wall("kitchen-service", 86, 0, 86, 32),
-        _wall("primary-suite", 80, 52, 80, 100),
-    ]
-
-
-def _comfort_openings() -> list[FloorPlanOpening]:
-    return [
-        _opening("front-door", 6, 0, 8, "horizontal", "door"),
-        _opening("rear-door", 92, 100, 8, "horizontal", "door"),
-        _opening("living-window", 24, 0, 16, "horizontal", "window"),
-        _opening("bedroom-window", 8, 100, 14, "horizontal", "window"),
-        _opening("primary-window", 60, 100, 16, "horizontal", "window"),
-    ]
-
-
-def _efficient_walls() -> list[FloorPlanWall]:
-    return [
-        _wall("north", 0, 0, 100, 0, "exterior"),
-        _wall("east", 100, 0, 100, 100, "exterior"),
-        _wall("south", 100, 100, 0, 100, "exterior"),
-        _wall("west", 0, 100, 0, 0, "exterior"),
-        _wall("public-private", 0, 32, 100, 32),
-        _wall("gallery", 0, 44, 100, 44),
-        _wall("wet-core", 76, 0, 76, 32),
-        _wall("primary-suite", 66, 44, 66, 100),
-        _wall("adu-separation", 40, 72, 40, 100),
-    ]
-
-
-def _efficient_openings() -> list[FloorPlanOpening]:
-    return [
-        _opening("front-door", 4, 0, 8, "horizontal", "door"),
-        _opening("side-door", 0, 82, 10, "vertical", "door"),
-        _opening("great-room-window", 22, 0, 18, "horizontal", "window"),
-        _opening("kitchen-window", 58, 0, 12, "horizontal", "window"),
-        _opening("primary-window", 78, 100, 16, "horizontal", "window"),
+        _wall("public-private", 0, 34, 100, 34),
+        _wall("service-core", 79, 0, 79, 100),
+        _wall("unit-separation", 0, 74, 100, 74),
     ]
 
 
@@ -294,28 +399,81 @@ def _opening(
     )
 
 
-def _room(
-    room_id: str,
-    name: str,
-    category: str,
-    estimated_sqft: float,
-    x: float,
-    y: float,
-    width: float,
-    height: float,
-) -> FloorPlanRoom:
-    return FloorPlanRoom(
-        room_id=room_id,
-        name=name,
-        category=category,
-        estimated_sqft=max(35, round(estimated_sqft)),
-        x=x,
-        y=y,
-        width=width,
-        height=height,
+def _svg_export(
+    title: str,
+    total_sqft: float,
+    width_ft: float,
+    depth_ft: float,
+    rooms: list[FloorPlanRoom],
+    walls: list[FloorPlanWall],
+    openings: list[FloorPlanOpening],
+    scale_assumption: str,
+) -> str:
+    scale = 8
+    svg_width = 100 * scale
+    svg_height = 118 * scale
+    room_markup = "\n".join(_svg_room(room, scale) for room in rooms)
+    wall_markup = "\n".join(_svg_wall(wall, scale) for wall in walls)
+    opening_markup = "\n".join(_svg_opening(opening, scale) for opening in openings)
+    escaped_title = escape(title)
+    escaped_scale = escape(scale_assumption)
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{svg_width}" height="{svg_height}" viewBox="0 0 {svg_width} {svg_height}" role="img" aria-label="{escaped_title}">
+  <style>
+    .label {{ font: 12px Arial, sans-serif; fill: #1f2933; font-weight: 700; }}
+    .small {{ font: 10px Arial, sans-serif; fill: #5c6a70; }}
+    .room {{ stroke: #47545a; stroke-width: 1; }}
+    .living {{ fill: #d8eadf; }}
+    .entry {{ fill: #d8eadf; }}
+    .kitchen {{ fill: #e9dfc7; }}
+    .service {{ fill: #e9dfc7; }}
+    .bedroom {{ fill: #dbe4ef; }}
+    .flex {{ fill: #dbe4ef; }}
+    .bath {{ fill: #e8d7dc; }}
+    .unit {{ fill: #d8e7e8; }}
+    .circulation {{ fill: #d8e7e8; }}
+    .wall {{ stroke: #25363d; stroke-linecap: square; }}
+    .exterior {{ stroke-width: 5; }}
+    .interior {{ stroke-width: 2; }}
+    .opening {{ fill: #ffffff; stroke: #255f5a; stroke-width: 1; }}
+  </style>
+  <rect x="0" y="0" width="{svg_width}" height="{svg_height}" fill="#f5f4ee"/>
+  <text x="16" y="24" class="label">{escaped_title}</text>
+  <text x="16" y="42" class="small">{round(total_sqft):,} sqft | {round(width_ft, 1)} ft x {round(depth_ft, 1)} ft footprint</text>
+  <text x="16" y="58" class="small">{escaped_scale}</text>
+  <g transform="translate(0 100)">
+    {room_markup}
+    {wall_markup}
+    {opening_markup}
+  </g>
+</svg>"""
+
+
+def _svg_room(room: FloorPlanRoom, scale: int) -> str:
+    x = room.x * scale
+    y = room.y * scale
+    width = room.width * scale
+    height = room.height * scale
+    label_y = y + min(height / 2, 26)
+    return (
+        f'<g><rect class="room {escape(room.category)}" x="{x:.1f}" y="{y:.1f}" '
+        f'width="{width:.1f}" height="{height:.1f}" rx="2"/>'
+        f'<text class="label" x="{x + width / 2:.1f}" y="{label_y:.1f}" text-anchor="middle">{escape(room.name)}</text>'
+        f'<text class="small" x="{x + width / 2:.1f}" y="{label_y + 14:.1f}" text-anchor="middle">{round(room.width_ft, 1)} ft x {round(room.depth_ft, 1)} ft</text>'
+        f'<text class="small" x="{x + width / 2:.1f}" y="{label_y + 27:.1f}" text-anchor="middle">{round(room.estimated_sqft):,} sf</text></g>'
     )
 
 
-def _scaled_sqft(target_building_sqft: float | None, factor: float) -> float:
-    baseline = target_building_sqft or 1_800
-    return max(400, round(baseline * factor))
+def _svg_wall(wall: FloorPlanWall, scale: int) -> str:
+    return (
+        f'<line class="wall {escape(wall.wall_type)}" x1="{wall.x1 * scale:.1f}" '
+        f'y1="{wall.y1 * scale:.1f}" x2="{wall.x2 * scale:.1f}" y2="{wall.y2 * scale:.1f}"/>'
+    )
+
+
+def _svg_opening(opening: FloorPlanOpening, scale: int) -> str:
+    width = opening.width * scale if opening.orientation == "horizontal" else 10
+    height = 10 if opening.orientation == "horizontal" else opening.width * scale
+    return (
+        f'<rect class="opening" x="{opening.x * scale:.1f}" y="{opening.y * scale:.1f}" '
+        f'width="{width:.1f}" height="{height:.1f}"/>'
+    )

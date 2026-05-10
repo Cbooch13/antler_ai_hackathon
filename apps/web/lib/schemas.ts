@@ -147,6 +147,8 @@ export const floorPlanRoomSchema = z.object({
   name: z.string().min(1),
   category: z.string().min(1),
   estimatedSqft: z.number().positive(),
+  widthFt: z.number().positive(),
+  depthFt: z.number().positive(),
   x: z.number().min(0).max(100),
   y: z.number().min(0).max(100),
   width: z.number().positive().max(100),
@@ -171,14 +173,27 @@ export const floorPlanOpeningSchema = z.object({
   openingType: z.string().min(1)
 });
 
+export const generatedVisualExportSchema = z.object({
+  exportId: z.string().min(1),
+  label: z.string().min(1),
+  format: z.literal("svg"),
+  content: z.string().min(1),
+  notes: z.array(z.string())
+});
+
 export const floorPlanSchema = z.object({
   planId: z.string().min(1),
   name: z.string().min(1),
   level: z.string().min(1),
   totalSqft: z.number().positive(),
+  footprintWidthFt: z.number().positive(),
+  footprintDepthFt: z.number().positive(),
+  scaleAssumption: z.string().min(1),
+  sqftDelta: z.number(),
   rooms: z.array(floorPlanRoomSchema),
   walls: z.array(floorPlanWallSchema),
   openings: z.array(floorPlanOpeningSchema),
+  visualExports: z.array(generatedVisualExportSchema),
   notes: z.array(z.string())
 });
 

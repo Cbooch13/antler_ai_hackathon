@@ -21,4 +21,12 @@ def test_schematic_agent_generates_comfort_and_utilization_versions() -> None:
     assert all(option.floor_plans for option in options)
     assert all(option.floor_plans[0].walls for option in options)
     assert all(option.floor_plans[0].openings for option in options)
-    assert options[0].target_building_sqft > options[1].target_building_sqft
+    assert all(option.target_building_sqft == 2_200 for option in options)
+    assert all(abs(option.floor_plans[0].sqft_delta) < 0.01 for option in options)
+    assert all(option.floor_plans[0].scale_assumption.startswith("Concept scale") for option in options)
+    assert all(option.floor_plans[0].visual_exports[0].format == "svg" for option in options)
+
+    second_run = SchematicDesignAgent().generate(
+        SchematicAgentInput(spec=spec, warning_findings=[])
+    )
+    assert options[0].option_id != second_run[0].option_id

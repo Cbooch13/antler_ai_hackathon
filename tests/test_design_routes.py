@@ -35,12 +35,15 @@ def test_design_route_returns_comfort_and_space_utilization_options() -> None:
         "space_utilization",
     ]
     assert payload["options"][0]["targetBuildingSqft"] == 2200
-    assert payload["options"][1]["targetBuildingSqft"] == 1980
+    assert payload["options"][1]["targetBuildingSqft"] == 2200
     assert all(option["floorPlans"] for option in payload["options"])
     assert all(option["floorPlans"][0]["totalSqft"] > 0 for option in payload["options"])
     assert all(option["floorPlans"][0]["rooms"] for option in payload["options"])
     assert all(option["floorPlans"][0]["walls"] for option in payload["options"])
     assert all(option["floorPlans"][0]["openings"] for option in payload["options"])
+    assert all(option["floorPlans"][0]["scaleAssumption"] for option in payload["options"])
+    assert all(option["floorPlans"][0]["visualExports"][0]["format"] == "svg" for option in payload["options"])
+    assert all(abs(option["floorPlans"][0]["sqftDelta"]) < 0.01 for option in payload["options"])
 
     comfort = payload["options"][0]
     comfort_rooms = comfort["floorPlans"][0]["rooms"]

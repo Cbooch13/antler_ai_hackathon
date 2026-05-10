@@ -213,13 +213,26 @@
     },
     "FloorPlanRoom": {
       "type": "object",
-      "required": ["roomId", "name", "category", "estimatedSqft", "x", "y", "width", "height"],
+      "required": [
+        "roomId",
+        "name",
+        "category",
+        "estimatedSqft",
+        "widthFt",
+        "depthFt",
+        "x",
+        "y",
+        "width",
+        "height"
+      ],
       "additionalProperties": false,
       "properties": {
         "roomId": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "category": { "type": "string", "minLength": 1 },
         "estimatedSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "widthFt": { "type": "number", "exclusiveMinimum": 0 },
+        "depthFt": { "type": "number", "exclusiveMinimum": 0 },
         "x": { "type": "number", "minimum": 0, "maximum": 100 },
         "y": { "type": "number", "minimum": 0, "maximum": 100 },
         "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 100 },
@@ -252,15 +265,48 @@
         "openingType": { "type": "string", "minLength": 1 }
       }
     },
+    "GeneratedVisualExport": {
+      "type": "object",
+      "required": ["exportId", "label", "format", "content", "notes"],
+      "additionalProperties": false,
+      "properties": {
+        "exportId": { "type": "string", "minLength": 1 },
+        "label": { "type": "string", "minLength": 1 },
+        "format": { "const": "svg" },
+        "content": { "type": "string", "minLength": 1 },
+        "notes": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
     "FloorPlan": {
       "type": "object",
-      "required": ["planId", "name", "level", "totalSqft", "rooms", "walls", "openings", "notes"],
+      "required": [
+        "planId",
+        "name",
+        "level",
+        "totalSqft",
+        "footprintWidthFt",
+        "footprintDepthFt",
+        "scaleAssumption",
+        "sqftDelta",
+        "rooms",
+        "walls",
+        "openings",
+        "visualExports",
+        "notes"
+      ],
       "additionalProperties": false,
       "properties": {
         "planId": { "type": "string", "minLength": 1 },
         "name": { "type": "string", "minLength": 1 },
         "level": { "type": "string", "minLength": 1 },
         "totalSqft": { "type": "number", "exclusiveMinimum": 0 },
+        "footprintWidthFt": { "type": "number", "exclusiveMinimum": 0 },
+        "footprintDepthFt": { "type": "number", "exclusiveMinimum": 0 },
+        "scaleAssumption": { "type": "string", "minLength": 1 },
+        "sqftDelta": { "type": "number" },
         "rooms": {
           "type": "array",
           "items": { "$ref": "#/$defs/FloorPlanRoom" }
@@ -272,6 +318,10 @@
         "openings": {
           "type": "array",
           "items": { "$ref": "#/$defs/FloorPlanOpening" }
+        },
+        "visualExports": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/GeneratedVisualExport" }
         },
         "notes": {
           "type": "array",
